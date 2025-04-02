@@ -1,0 +1,262 @@
+/* General Styles */
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: sans-serif;
+    background-color: #222;
+    color: #fff;
+    cursor: default;
+}
+
+canvas {
+    display: block;
+}
+
+/* Base Overlay Style */
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex; /* Changed default to flex for centering */
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    backdrop-filter: blur(2px);
+    z-index: 10;
+    display: none; /* Hide all overlays by default */
+}
+
+/* Overlay Content Box Style */
+.overlay-content {
+    width: 90%;
+    max-width: 600px;
+    padding: 20px;
+    background-color: rgba(40, 40, 45, 0.96);
+    border-radius: 10px;
+    cursor: default;
+    border: 1px solid #555;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #666 #333;
+}
+.overlay-content::-webkit-scrollbar { width: 8px; }
+.overlay-content::-webkit-scrollbar-track { background: #333; border-radius: 4px;}
+.overlay-content::-webkit-scrollbar-thumb { background-color: #666; border-radius: 4px; border: 1px solid #333;}
+
+/* Specific Overlays - Apply .overlay class */
+#blocker, #puzzleOverlay2D, #inventoryModal, #gameoverScreen, #puzzleModal, #victoryScreen, #timeupOverlay, #helpConfirmModal, #minigameOverlay {
+    /* Inherit from .overlay, potentially override display if needed by JS */
+}
+#puzzleModal { z-index: 11; }
+#minigameOverlay { background-color: rgba(20, 20, 30, 0.9); z-index: 12; }
+#timeupOverlay { background-color: rgba(50, 0, 0, 0.9); z-index: 13; backdrop-filter: blur(3px); flex-direction: column; }
+#helpConfirmModal { background-color: rgba(0,0,0,0.9); z-index: 20; backdrop-filter: blur(3px); flex-direction: column; }
+
+
+/* Content Areas - Apply .overlay-content */
+#instructions, #gameoverScreenContent, #puzzleOverlayContent, #puzzleModalContent, #inventoryModalContent, #victoryScreen > div, #timeupContent, #helpConfirmContent, #minigameContent {
+    /* Apply base content style */
+     width: 90%; /* Default width */
+     padding: 20px; /* Default padding */
+     background-color: rgba(40, 40, 45, 0.96); /* Default background */
+     border-radius: 10px;
+     border: 1px solid #555;
+     box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+     max-height: 90vh;
+     overflow-y: auto;
+     scrollbar-width: thin;
+     scrollbar-color: #666 #333;
+     /* max-width can be overridden */
+}
+
+/* Max Width Overrides */
+#victoryScreen > div { max-width: 600px; }
+#puzzleModalContent { max-width: 450px; }
+#inventoryModalContent { max-width: 350px; }
+#timeupContent { max-width: 500px; padding: 30px; background-color: rgba(60, 20, 20, 0.98); border: 1px solid #a88; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+#helpConfirmContent { max-width: 450px; background: #333; padding: 30px; border: 1px solid #888; }
+#minigameContent { max-width: 700px; background-color: rgba(50, 50, 60, 0.98); border: 1px solid #778; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+#puzzleOverlayContent { background-color: rgba(50, 50, 60, 0.97); }
+
+
+/* Headings */
+.overlay-content h1, #victoryScreen h1, #timeupContent h1, #helpConfirmContent h2 {
+    margin-top: 0;
+    color: #eee;
+    border-bottom: 1px solid #555;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    font-size: 26px;
+}
+#victoryScreen h1 { color: #4CAF50; font-size: 28px; margin-bottom: 15px; }
+#timeupContent h1 { color: #ffdddd; border-bottom: 1px solid #a88; margin-bottom: 20px; font-size: 28px; }
+#helpConfirmContent h2 { color: #ffae42; font-size: 24px; border-bottom: 1px solid #777; }
+
+.overlay-content h2 {
+    margin-top: 15px;
+    margin-bottom: 8px;
+    color: #ffdd57;
+    font-size: 17px;
+    border-top: 1px solid #444;
+    padding-top: 12px;
+}
+.overlay-content h3 { /* For Puzzle/Inventory/Minigame Titles */
+    margin-top: 0; color: #eee; border-bottom: 1px solid #555; padding-bottom: 8px; margin-bottom: 12px; font-size: 18px;
+}
+#minigameTitle { font-size: 22px; border-bottom: 1px solid #667; }
+
+/* Paragraphs */
+.overlay-content p, #victoryScreen p, #timeupContent p, #helpConfirmContent p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #ccc;
+    margin-bottom: 10px;
+}
+#victoryScreen p { font-size: 16px; line-height: 1.6; margin-bottom: 20px; }
+#timeupContent p { font-size: 18px; color: #fcc; margin-bottom: 30px; }
+#minigameInstructions { font-size: 14px; color: #ccc; margin-bottom: 20px; }
+
+/* Buttons */
+.overlay-content button, #victoryScreen span#restartButtonVictory, #timeupContent button, #helpConfirmContent button {
+    background-color: #5a6578;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    margin: 8px 5px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+    font-size: 15px;
+    min-width: 140px;
+    display: inline-block; /* Ensure consistent layout */
+}
+.overlay-content button:hover, #victoryScreen span#restartButtonVictory:hover, #timeupContent button:hover, #helpConfirmContent button:hover {
+    background-color: #707f8b;
+}
+#victoryScreen span#restartButtonVictory { /* Specific Victory Restart */
+    font-weight: bold; font-size: 20px; color: #ffdd57; text-decoration: none;
+    padding: 10px 15px; border: 1px solid #ffdd57;
+    background-color: rgba(80, 80, 60, 0.5);
+}
+#victoryScreen span#restartButtonVictory:hover {
+    color: #fff; background-color: rgba(100, 100, 80, 0.7); border-color: #fff;
+}
+#timeupContent button { /* Timeup Restart */
+    background-color: #833; border: 1px solid #a55; padding: 12px 25px; font-size: 18px;
+}
+#timeupContent button:hover { background-color: #a55; }
+#puzzleModalContent button, #inventoryModalContent button { background-color: #555; border: 1px solid #888; }
+#puzzleModalContent button:hover, #inventoryModalContent button:hover { background-color: #666; }
+#puzzleOverlayContent button { background-color: #667; }
+#puzzleOverlayContent button:hover { background-color: #778; }
+#minigameCloseButton { background-color: #667; color: #fff; border: 1px solid #889; }
+#minigameCloseButton:hover { background-color: #778; }
+#helpButton { background-color: #ffae42; color: #333; } /* Help Button Normal */
+#helpButton:hover { background-color: #ffc97e; }
+#helpButton:disabled { background-color: #aaa; color: #666; opacity: 0.6; cursor: not-allowed; } /* Help Button Disabled */
+.confirm-button { background-color: #d9534f; } /* Red Confirm */
+.confirm-button:hover { background-color: #c9302c; }
+.cancel-button { background-color: #5bc0de; } /* Blue Cancel */
+.cancel-button:hover { background-color: #31b0d5; }
+
+
+/* Start Prompt */
+#startPrompt {
+    cursor: pointer; font-weight: bold; transition: color 0.2s; font-size: 20px;
+    display: block; margin-top: 25px; color: #ffdd57;
+}
+#startPrompt:hover { color: #fff; }
+
+/* Difficulty Selector */
+#difficultySelector { margin-top: 10px; margin-bottom: 15px; text-align: center; }
+#difficultySelector label { margin-right: 8px; font-size: 14px; color: #ccc; }
+#difficultySelect { padding: 6px 10px; background-color: #555; color: #fff; border: 1px solid #888; border-radius: 4px; font-size: 14px; cursor: pointer; }
+
+/* Puzzle Count Display */
+.puzzleCountBlock { margin: 15px 0; font-size: 14px; }
+.puzzleCountNumber { font-size: 38px; font-weight: bold; color: #ffdd57; display: inline-block; margin: 0 5px; } /* Adjusted display */
+
+/* Controls List */
+.controlsList { text-align: left; margin: 12px auto 20px auto; max-width: 350px; padding-left: 20px; }
+.controlsList p { margin-bottom: 4px; font-size: 14px; }
+.controlsList strong { display: inline-block; width: 110px; color: #eee; font-weight: normal; } /* Wider */
+.controlsList span { color: #ffdd57; }
+
+/* HUD */
+#hud {
+    position: absolute; top: 10px; left: 10px; background-color: rgba(0, 0, 0, 0.7);
+    padding: 10px 15px; border-radius: 5px; display: none; z-index: 1;
+    color: #eee; border: 1px solid #333;
+}
+#hud p { margin: 5px 0; font-size: 14px; }
+#timerDisplay { /* Style for the timer line specifically */
+    font-weight: bold;
+    color: #ffdd57;
+}
+#timerText { /* Style for the numbers */
+   font-family: 'Courier New', Courier, monospace;
+   font-size: 16px;
+   background-color: rgba(50,50,50,0.5);
+   padding: 2px 5px;
+   border-radius: 3px;
+}
+
+/* Tooltip */
+#tooltip {
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background-color: rgba(20, 20, 20, 0.85); color: #fff; padding: 10px 18px;
+    border-radius: 5px; font-size: 15px; white-space: nowrap; display: none; z-index: 1;
+    pointer-events: none; border: 1px solid #444;
+}
+
+/* Puzzle Modal Input */
+#puzzleModalContent input {
+    display: block; margin: 15px auto; padding: 10px; width: 85%;
+    background-color: #555; border: 1px solid #888; color: #fff; border-radius: 4px;
+}
+#puzzleModalContent #puzzleMessage { margin-top: 15px; color: #ffdd57; min-height: 20px; font-weight: bold; }
+
+/* Inventory List */
+#inventoryItems {
+    list-style: none; padding: 0; margin: 15px 0; max-height: 200px; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: #666 #333;
+}
+#inventoryItems::-webkit-scrollbar { width: 8px; }
+#inventoryItems::-webkit-scrollbar-track { background: #333; border-radius: 4px;}
+#inventoryItems::-webkit-scrollbar-thumb { background-color: #666; border-radius: 4px; border: 1px solid #333;}
+#inventoryItems li {
+    padding: 10px 12px; margin-bottom: 8px; background-color: rgba(70, 70, 80, 0.85);
+    border-radius: 4px; cursor: pointer; text-align: center; font-size: 15px;
+    color: #ddd; transition: background-color 0.2s, transform 0.1s; border: 1px solid #556;
+}
+#inventoryItems li:hover { background-color: rgba(90, 90, 100, 0.95); transform: scale(1.02); }
+#inventoryItems li.selected { background-color: #4a90e2; color: #fff; font-weight: bold; border: 1px solid #7ac0ff; transform: scale(1.02); }
+#inventoryItems li.empty { font-style: italic; color: #999; cursor: default; background-color: transparent; border: none; } /* Style for "(Vacío)" */
+
+/* Minigame Area */
+#minigameArea {
+    min-height: 300px; background: #334; padding: 15px; border-radius: 5px;
+    margin-bottom: 20px; display: flex; justify-content: center; align-items: center;
+    color: #bbb; font-style: italic;
+}
+
+/* Pointer */
+#pointer {
+    position: absolute; left: 50%; top: 50%; width: 6px; height: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.5); background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none;
+    z-index: 2; display: none;
+}
+
+/* Body Classes for Cursor States */
+body.playing.interactable-hover { cursor: grab; }
+body.playing.item-selected { cursor: cell; }
+body.playing.holding-object { cursor: grabbing; }
+
+/* Hide Audio Controls Stub */
+#audioControls { display: none !important; }

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Updated Title -->
+    <title>Escape Room Modular - v3.0</title>
+    <!-- Link to external CSS -->
+    <link rel="stylesheet" href="style.css" />
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <!-- UI Elements (Mostly Unchanged from Original HTML Structure) -->
+    <div id="blocker">
+      <div id="instructions">
+        <h1>¡Escapa de la Habitación!</h1>
+        <p>
+          Explora la habitación, resuelve los puzzles y encuentra la salida.
+        </p>
+        <h2>Opciones</h2>
+        <div id="difficultySelector">
+          <label for="difficultySelect">Dificultad:</label>
+          <!-- Updated Difficulty Options -->
+          <select id="difficultySelect" name="difficulty">
+            <option value="4" selected>Fácil (4 Puzzles)</option>
+            <option value="7">Medio (7 Puzzles)</option>
+            <option value="10">Difícil (10 Puzzles)</option>
+            <option value="-1">Experto (Todos)</option>
+            <!-- -1 for All -->
+          </select>
+        </div>
+        <div class="puzzleCountBlock">
+          Encuentra y resuelve
+          <span class="puzzleCountNumber" id="menuPuzzleCountDisplay">4</span>
+          puzzles para completar.
+        </div>
+        <h2>Controles:</h2>
+        <div class="controlsList">
+          <p><strong>WASD:</strong> <span>Moverse</span></p>
+          <p><strong>ESPACIO:</strong> <span>Saltar</span></p>
+          <p><strong>RATÓN:</strong> <span>Mirar</span></p>
+          <p>
+            <strong>E / Clic Izq:</strong>
+            <span>Interactuar / Usar Objeto / Soltar</span>
+          </p>
+          <p><strong>I:</strong> <span>Abrir/Cerrar Inventario</span></p>
+          <p><strong>Clic Inv:</strong> <span>Seleccionar Objeto</span></p>
+          <p>
+            <strong>Q / Clic Der:</strong> <span>Deseleccionar Objeto</span>
+          </p>
+          <p><strong>G:</strong> <span>Soltar Objeto Seleccionado</span></p>
+          <p><strong>ESC:</strong> <span>Pausa / Menú / Reanudar</span></p>
+        </div>
+        <span id="startPrompt">Haz Clic para Empezar</span>
+      </div>
+    </div>
+
+    <div id="hud">
+      <p id="objectiveText">Objetivo: Cargando...</p>
+      <p>
+        Puzzles Resueltos: <span id="puzzlesSolvedText">0</span> /
+        <span id="puzzlesTotalText">?</span>
+      </p>
+      <p id="timerDisplay">Tiempo: <span id="timerText">--:--</span></p>
+    </div>
+
+    <div id="inventoryModal">
+      <div id="inventoryModalContent">
+        <h3>Inventario</h3>
+        <p>Selecciona un ítem o [Q] / [Clic Der] para deseleccionar...</p>
+        <ul id="inventoryItems"></ul>
+        <button id="inventoryCloseButton">Cerrar [I]</button>
+      </div>
+    </div>
+
+    <div id="tooltip">Interactuar</div>
+
+    <div id="puzzleModal">
+      <div id="puzzleModalContent">
+        <h3 id="puzzleTitle">Título</h3>
+        <p id="puzzleDescription">Descripción</p>
+        <div id="puzzleContent">
+          <input type="text" id="puzzleInput" placeholder="Introduce..." />
+        </div>
+        <p id="puzzleMessage"></p>
+        <button id="puzzleSubmitButton">Enviar [Enter]</button>
+        <button id="puzzleCloseButton">Cerrar [Esc]</button>
+      </div>
+    </div>
+
+    <div id="puzzleOverlay2D">
+      <div id="puzzleOverlayContent">
+        <h3 id="puzzleOverlayTitle">Puzzle 2D Placeholder</h3>
+        <p id="puzzleOverlayDescription">...</p>
+        <div id="puzzleOverlayArea">(Área para puzzle 2D)</div>
+        <button id="puzzleOverlayCloseButton">Cerrar Puzzle [Esc]</button>
+      </div>
+    </div>
+
+    <div id="minigameOverlay">
+      <div id="minigameContent">
+        <h3 id="minigameTitle">Minijuego</h3>
+        <div id="minigameArea">(Área del Minijuego - Cargando...)</div>
+        <p id="minigameInstructions"></p>
+        <button id="minigameCloseButton">Cerrar Minijuego [Esc]</button>
+      </div>
+    </div>
+
+    <div id="victoryScreen">
+      <div>
+        <h1>¡HAS ESCAPADO!</h1>
+        <p>¡Enhorabuena! Has resuelto los misterios y abierto la puerta.</p>
+        <!-- Use ID for JS listener -->
+        <span id="restartButtonVictory" style="font-size: 24px; cursor: pointer"
+          >Haz Clic para Reiniciar</span
+        >
+      </div>
+    </div>
+
+    <div id="gameoverScreen">
+      <div id="gameoverScreenContent">
+        <h1>¡PAUSA!</h1>
+        <div class="puzzleCountBlock">
+          Has resuelto
+          <span class="puzzleCountNumber" id="pausePuzzlesCount">0</span>
+          puzzles en esta sesión.
+        </div>
+        <!-- Controls reminder -->
+        <h2>Controles:</h2>
+        <div class="controlsList">
+          <p><strong>WASD:</strong> <span>Moverse</span></p>
+          <p><strong>ESPACIO:</strong> <span>Saltar</span></p>
+          <p><strong>RATÓN:</strong> <span>Mirar</span></p>
+          <p>
+            <strong>E / Clic Izq:</strong>
+            <span>Interactuar / Usar Objeto / Soltar</span>
+          </p>
+          <p><strong>I:</strong> <span>Abrir/Cerrar Inventario</span></p>
+          <p><strong>Clic Inv:</strong> <span>Seleccionar Objeto</span></p>
+          <p>
+            <strong>Q / Clic Der:</strong> <span>Deseleccionar Objeto</span>
+          </p>
+          <p><strong>G:</strong> <span>Soltar Objeto Seleccionado</span></p>
+          <p><strong>ESC:</strong> <span>Reanudar / Menú</span></p>
+        </div>
+        <div>
+          <button id="resumeButton">Reanudar Juego [Esc]</button>
+          <button id="restartButtonPause">Reiniciar</button>
+          <!-- Help Button Added -->
+          <button
+            id="helpButton"
+            style="background-color: #ffae42; color: #333; margin-top: 15px"
+          >
+            Pedir Pista (Penalización de Tiempo)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="timeupOverlay">
+      <div id="timeupContent">
+        <h1>¡TIEMPO AGOTADO!</h1>
+        <p>No has logrado escapar a tiempo.</p>
+        <button id="restartButtonTimeup">Reiniciar</button>
+      </div>
+    </div>
+
+    <!-- Help Confirmation Modal Added -->
+    <div id="helpConfirmModal">
+      <div id="helpConfirmContent">
+        <h2>Confirmar Pista</h2>
+        <p>Pedir una pista reducirá tu tiempo restante a la mitad.</p>
+        <p>¿Estás seguro?</p>
+        <button id="confirmHelpBtn" class="confirm-button">
+          Sí, necesito ayuda
+        </button>
+        <button id="cancelHelpBtn" class="cancel-button">
+          No, seguiré intentando
+        </button>
+      </div>
+    </div>
+
+    <div id="pointer"></div>
+
+    <!-- Main script, now external -->
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
