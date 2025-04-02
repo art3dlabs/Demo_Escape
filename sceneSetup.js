@@ -2,7 +2,7 @@
 import {
   Scene,
   Color,
-  PerspectiveCamera, // Make sure this is imported if createCamera is here
+  PerspectiveCamera,
   WebGLRenderer,
   SRGBColorSpace,
   PCFSoftShadowMap,
@@ -10,9 +10,8 @@ import {
   HemisphereLight,
   PointLight,
   MeshStandardMaterial,
-  TextureLoader,
+  TextureLoader, // Keep TextureLoader just in case
   RepeatWrapping,
-  NearestFilter, // Keep if needed, though less common with PBR maps
   BoxGeometry,
   PlaneGeometry,
   DoubleSide,
@@ -21,95 +20,64 @@ import {
   CircleGeometry,
   ConeGeometry,
   Group,
-  Mesh, // Import the base Mesh class
-  SphereGeometry, // Import SphereGeometry used for plant leaves etc.
-  // Add any other THREE classes/constants used *directly* in sceneSetup.js
+  Mesh,
+  SphereGeometry,
 } from "three";
 
-// --- The rest of your sceneSetup.js file follows ---
-import { addCollisionObject, clearCollisionObjects } from "./playerControls.js"; // Import collision management
+import { addCollisionObject, clearCollisionObjects } from "./playerControls.js";
 import {
   addInteractableObject,
   clearInteractableObjects,
-} from "./interaction.js"; // Import interactable management
+} from "./interaction.js";
+
 // --- Constants ---
 const ROOM_SIZE = { width: 12, depth: 12, height: 3 };
 
-// --- Texture Loading ---
-// Commenting out texture loading for now to avoid 403/404 errors.
-// Using basic colored materials instead.
+// --- Texture Loading (Commented Out - Using basic colors) ---
 /*
 const textureLoader = new TextureLoader();
-const PLACEHOLDER_TEXTURE_URL = 'https://via.placeholder.com/128/808080/FFFFFF?text=Texture';
-const WOOD_COLOR_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/hardwood2_diffuse.jpg';
-const WOOD_ROUGHNESS_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/hardwood2_roughness.jpg';
-const METAL_COLOR_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/Metal_SciFi_01_basecolor.jpg';
-const METAL_METALNESS_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/Metal_SciFi_01_metallic.jpg';
-const FLOOR_COLOR_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/terrain/grasslight-big.jpg';
-const FLOOR_ROUGHNESS_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/roughness_map.jpg';
-
-function loadTexture(url, repeatX = 1, repeatY = 1) {
-    if (!url || url === PLACEHOLDER_TEXTURE_URL) {
-        url = PLACEHOLDER_TEXTURE_URL;
-        console.warn(`Using placeholder texture for a missing URL.`);
-    }
-    try {
-        console.log(`Loading texture from URL: ${url}`);
-        const texture = textureLoader.load(url);
-        texture.wrapS = RepeatWrapping;
-        texture.wrapT = RepeatWrapping;
-        texture.repeat.set(repeatX, repeatY);
-        texture.colorSpace = SRGBColorSpace;
-        texture.anisotropy = 16;
-        return texture;
-    } catch (error) {
-        console.error(`Failed to load texture from URL: ${url}`, error);
-         const placeholderTexture = textureLoader.load(PLACEHOLDER_TEXTURE_URL);
-         placeholderTexture.wrapS = RepeatWrapping;
-         placeholderTexture.wrapT = RepeatWrapping;
-         placeholderTexture.repeat.set(repeatX, repeatY);
-         placeholderTexture.colorSpace = SRGBColorSpace;
-         return placeholderTexture;
-    }
+function loadTexture(path, repeatX = 1, repeatY = 1) {
+    // ... (loading logic) ...
 }
 */
 
 // --- Basic Color Materials (Placeholder) ---
+// Using simpler, less intense colors now
 const woodMaterial = new MeshStandardMaterial({
   color: 0x966f33,
-  roughness: 0.7,
+  roughness: 0.8,
   metalness: 0.1,
 });
 const darkWoodMaterial = new MeshStandardMaterial({
   color: 0x5c3a21,
-  roughness: 0.75,
+  roughness: 0.8,
   metalness: 0.1,
 });
 const metalMaterial = new MeshStandardMaterial({
-  color: 0x888888,
-  roughness: 0.4,
-  metalness: 0.8,
-});
-const floorMaterial = new MeshStandardMaterial({
-  color: 0x667766,
-  roughness: 0.9,
-  metalness: 0.0,
-}); // Greenish-grey floor
-const wallMaterial = new MeshStandardMaterial({
   color: 0xaaaaaa,
+  roughness: 0.5,
+  metalness: 0.7,
+}); // Grey metal
+const floorMaterial = new MeshStandardMaterial({
+  color: 0x556b2f,
+  roughness: 0.9,
+  metalness: 0.0,
+}); // Dark Olive Green floor
+const wallMaterial = new MeshStandardMaterial({
+  color: 0xc2b2a0,
   side: DoubleSide,
   roughness: 0.9,
   metalness: 0.0,
-});
+}); // Beige/Tan wall
 const ceilingMaterial = new MeshStandardMaterial({
-  color: 0xdddddd,
+  color: 0xd8d8d8,
   side: DoubleSide,
-}); // <<< RE-ADDED DEFINITION
+}); // Light grey ceiling
 const shelfMaterial = new MeshStandardMaterial({
   color: 0x966f33,
   roughness: 0.6,
 });
-const creamColor = 0xfff8dc; // Keep for specific colors
+const creamColor = 0xfff8dc;
 const legMaterial = new MeshStandardMaterial({
   color: 0x444444,
   metalness: 0.7,
@@ -128,11 +96,11 @@ const lampBaseMaterial = new MeshStandardMaterial({
 const lampShadeMaterial = new MeshStandardMaterial({
   color: 0xffffe0,
   emissive: 0xffffe0,
-  emissiveIntensity: 0.4,
+  emissiveIntensity: 0.3,
   transparent: true,
-  opacity: 0.9,
+  opacity: 0.85,
   side: DoubleSide,
-});
+}); // Lower intensity/opacity
 const smallTableMaterial = new MeshStandardMaterial({
   color: 0xd2b48c,
   roughness: 0.7,
@@ -144,7 +112,7 @@ const pictureMaterial = new MeshStandardMaterial({
 const sofaFabricMaterial = new MeshStandardMaterial({
   color: 0x708090,
   roughness: 0.9,
-});
+}); // Slate gray sofa
 const pressurePlateMaterial = new MeshStandardMaterial({
   color: 0x444455,
   metalness: 0.8,
@@ -158,30 +126,29 @@ const keypadMaterial = new MeshStandardMaterial({
 const wiresTriggerMaterial = new MeshStandardMaterial({
   color: 0x661111,
   emissive: 0x220000,
-  emissiveIntensity: 0.5,
-});
+  emissiveIntensity: 0.2,
+}); // Dimmer emissive
 const simonTriggerMaterial = new MeshStandardMaterial({
   color: 0x111144,
   emissive: 0x000011,
-  emissiveIntensity: 0.6,
-});
+  emissiveIntensity: 0.3,
+}); // Dimmer emissive
 const symbolBookMaterial = new MeshStandardMaterial({ color: 0xeeeecc });
 const projectorMaterial = new MeshStandardMaterial({
   color: 0x303030,
   metalness: 0.6,
 });
 const ventMaterial = new MeshStandardMaterial({
-  color: 0xcccccc,
+  color: 0xbbbbbb,
   metalness: 0.7,
   roughness: 0.3,
   side: DoubleSide,
-}); // Grey metallic vent
+}); // Lighter grey vent
 
 // --- Scene Creation ---
 export function createScene() {
   const scene = new Scene();
-  scene.background = new Color(0x333840);
-  // scene.fog = new THREE.Fog(0x333840, 10, 30); // Optional fog
+  scene.background = new Color(0x282c34); // Darker background
   return scene;
 }
 
@@ -207,14 +174,15 @@ export function createRenderer() {
   return renderer;
 }
 
-// --- Lighting Setup ---
+// --- Lighting Setup (Dimmer) ---
 export function setupLighting(scene) {
   console.log("Setting up lighting...");
-  const ambientLight = new AmbientLight(0xffffff, 0.2);
+  // Lower ambient and hemisphere lights
+  const ambientLight = new AmbientLight(0xffffff, 0.1); // Much lower ambient
   scene.add(ambientLight);
-  const hemiLight = new HemisphereLight(0xcccccc, 0x444444, 0.5);
+  const hemiLight = new HemisphereLight(0xcccccc, 0x444444, 0.2); // Lower intensity
   scene.add(hemiLight);
-  // Add lights for lamps inside setupRoomObjects
+  // Add PointLights inside setupRoomObjects
   console.log("Base lighting added.");
 }
 
@@ -237,14 +205,13 @@ export function setupRoomObjects(scene) {
   // --- Walls ---
   const wallGeoNS = new BoxGeometry(ROOM_SIZE.width, ROOM_SIZE.height, 0.1);
   const wallGeoEW = new BoxGeometry(ROOM_SIZE.depth, ROOM_SIZE.height, 0.1);
-  const wallBack = new Mesh(wallGeoNS, wallMaterial.clone()); // Clone material for independent walls if needed later
+  const wallBack = new Mesh(wallGeoNS, wallMaterial.clone());
   wallBack.position.set(0, ROOM_SIZE.height / 2, -ROOM_SIZE.depth / 2);
   wallBack.receiveShadow = true;
-  wallBack.castShadow = true; // Walls can cast shadows too
+  wallBack.castShadow = true;
   wallBack.name = "wallBack";
   scene.add(wallBack);
   addCollisionObject(wallBack);
-
   const wallLeft = new Mesh(wallGeoEW, wallMaterial.clone());
   wallLeft.position.set(-ROOM_SIZE.width / 2, ROOM_SIZE.height / 2, 0);
   wallLeft.rotation.y = Math.PI / 2;
@@ -253,7 +220,6 @@ export function setupRoomObjects(scene) {
   wallLeft.name = "wallLeft";
   scene.add(wallLeft);
   addCollisionObject(wallLeft);
-
   const wallRight = new Mesh(wallGeoEW, wallMaterial.clone());
   wallRight.position.set(ROOM_SIZE.width / 2, ROOM_SIZE.height / 2, 0);
   wallRight.rotation.y = Math.PI / 2;
@@ -262,7 +228,6 @@ export function setupRoomObjects(scene) {
   wallRight.name = "wallRight";
   scene.add(wallRight);
   addCollisionObject(wallRight);
-
   const wallFront = new Mesh(wallGeoNS, wallMaterial.clone());
   wallFront.position.set(0, ROOM_SIZE.height / 2, ROOM_SIZE.depth / 2);
   wallFront.receiveShadow = true;
@@ -273,7 +238,7 @@ export function setupRoomObjects(scene) {
 
   // --- Ceiling ---
   const ceilingGeo = new PlaneGeometry(ROOM_SIZE.width, ROOM_SIZE.depth);
-  const ceiling = new Mesh(ceilingGeo, ceilingMaterial); // <<< USES THE RE-ADDED ceilingMaterial
+  const ceiling = new Mesh(ceilingGeo, ceilingMaterial);
   ceiling.position.y = ROOM_SIZE.height;
   ceiling.rotation.x = Math.PI / 2;
   ceiling.name = "ceiling";
@@ -355,7 +320,7 @@ export function setupRoomObjects(scene) {
   addInteractableObject(drawer);
   addCollisionObject(drawer);
 
-  // Chair
+  // Chair... (keep as is)
   const chairSeatHeight = 0.45;
   const chairSeatGeo = new BoxGeometry(0.4, 0.05, 0.4);
   const chairSeat = new Mesh(chairSeatGeo, woodMaterial);
@@ -383,7 +348,7 @@ export function setupRoomObjects(scene) {
   addInteractableObject(chair);
   addCollisionObject(chairSeat);
 
-  // Item Shelves
+  // Item Shelves... (keep as is)
   const itemShelfWidth = 1.0;
   const itemShelfHeight = 0.04;
   const itemShelfDepth = 0.25;
@@ -409,7 +374,7 @@ export function setupRoomObjects(scene) {
     addCollisionObject(shelf);
   });
 
-  // Bookshelf (Structure Only)
+  // Bookshelf... (keep as is)
   const bookShelfUnitWidth = 1.4;
   const bookShelfHeight = 0.04;
   const bookShelfDepth = 0.25;
@@ -468,7 +433,7 @@ export function setupRoomObjects(scene) {
   scene.add(bookShelfStructure);
   bookShelfStructure.userData = { isStaticFurniture: true };
 
-  // Safe Shelf
+  // Safe Shelf... (keep as is)
   const safeShelfWidthEnlarged = 1.0;
   const safeShelfHeight = 0.04;
   const safeShelfDepthEnlarged = 0.7;
@@ -492,7 +457,7 @@ export function setupRoomObjects(scene) {
   scene.add(safeShelf);
   addCollisionObject(safeShelf);
 
-  // Sofa
+  // Sofa... (keep as is)
   const sofaWidth = 1.8;
   const sofaDepth = 0.8;
   const sofaHeight = 0.7;
@@ -548,7 +513,7 @@ export function setupRoomObjects(scene) {
   scene.add(sofaGroup);
   addInteractableObject(sofaGroup);
 
-  // Small Table
+  // Small Table... (keep as is)
   const tableRadius = 0.3;
   const tableHeight = 0.5;
   const tableTopHeight = 0.04;
@@ -577,7 +542,7 @@ export function setupRoomObjects(scene) {
     sofaGroup.position.z + sofaDepth / 2 + tableRadius + 0.2
   );
   const smallTableWorldPos = new Vector3();
-  smallTable.getWorldPosition(smallTableWorldPos);
+  smallTable.getWorldPosition(smallTableWorldPos); // Calculate world pos before setting relative child positions
   tableTop.position.y = tableHeight - tableTopHeight / 2;
   tableLeg.position.y = tableLegHeight / 2;
   tableTop.castShadow = true;
@@ -595,7 +560,7 @@ export function setupRoomObjects(scene) {
   addCollisionObject(tableTop);
   addCollisionObject(tableLeg);
 
-  // Picture on Wall
+  // Picture on Wall... (keep as is)
   const pictureGeo = new PlaneGeometry(0.8, 0.6);
   const picture = new Mesh(pictureGeo, pictureMaterial);
   const pictureFrameGeo = new BoxGeometry(0.8 + 0.05, 0.6 + 0.05, 0.03);
@@ -616,7 +581,7 @@ export function setupRoomObjects(scene) {
   scene.add(pictureGroup);
   addInteractableObject(pictureGroup);
 
-  // Rug
+  // Rug... (keep as is)
   const rugGeo = new PlaneGeometry(2.5, 1.8);
   const rugMat = new MeshStandardMaterial({ color: 0x6b2a3b, roughness: 0.9 });
   const rug = new Mesh(rugGeo, rugMat);
@@ -634,7 +599,7 @@ export function setupRoomObjects(scene) {
   scene.add(rug);
   addInteractableObject(rug);
 
-  // Wall Clock
+  // Wall Clock... (keep as is)
   const clockFaceGeo = new CircleGeometry(0.2, 32);
   const clockFaceMat = new MeshStandardMaterial({ color: 0xfff8dc });
   const clockFace = new Mesh(clockFaceGeo, clockFaceMat);
@@ -656,7 +621,7 @@ export function setupRoomObjects(scene) {
   scene.add(clockGroup);
   addInteractableObject(clockGroup);
 
-  // Air Vent Mesh
+  // Air Vent Mesh... (keep as is)
   const ventGeo = new PlaneGeometry(0.4, 0.3);
   const airVent = new Mesh(ventGeo, ventMaterial);
   const airVentY = ROOM_SIZE.height - 0.3;
@@ -671,7 +636,7 @@ export function setupRoomObjects(scene) {
   scene.add(airVent);
   addInteractableObject(airVent);
 
-  // Potted Plant
+  // Potted Plant... (keep as is)
   const potHeight = 0.3;
   const potRadius = 0.15;
   const potGeo = new CylinderGeometry(
@@ -716,11 +681,12 @@ export function setupRoomObjects(scene) {
   addInteractableObject(plant);
   addCollisionObject(plantPot);
 
-  // --- Lamps with Lights ---
+  // --- Lamps with Lights (Dimmer) ---
   const lampLightColor = 0xffeedd;
-  const lampIntensity = 15;
-  const lampDistance = 6;
-  const lampDecay = 1.5;
+  const lampIntensity = 3; // <<< REDUCED INTENSITY
+  const lampDistance = 5; // <<< Reduced distance slightly
+  const lampDecay = 2; // Standard decay
+
   // Floor Lamps
   const floorLampPositions = [
     new Vector3(-ROOM_SIZE.width / 2 + 1, 0, -ROOM_SIZE.depth / 2 + 1),
@@ -792,9 +758,9 @@ export function setupRoomObjects(scene) {
     );
     lampLight.position.set(pos.x, shadeY - 0.1, pos.z);
     lampLight.castShadow = true;
-    lampLight.shadow.mapSize.width = 512;
-    lampLight.shadow.mapSize.height = 512;
-    lampLight.shadow.bias = -0.005;
+    lampLight.shadow.mapSize.width = 256;
+    lampLight.shadow.mapSize.height = 256;
+    lampLight.shadow.bias = -0.005; // Lower shadow map size for performance if needed
     lampLight.name = `floorLampLight_${index}`;
     scene.add(lampLight);
     scene.add(floorLampGroup);
@@ -850,7 +816,7 @@ export function setupRoomObjects(scene) {
     isStaticFurniture: true,
   };
   const deskPos = new Vector3();
-  tabletopMesh.getWorldPosition(deskPos);
+  tabletopMesh.getWorldPosition(deskPos); // Use position of tabletop mesh
   deskLampGroup.position.set(
     deskPos.x - tabletopWidth / 2 + deskLampBaseRadius + 0.1,
     deskPos.y + tabletopHeight / 2,
@@ -858,14 +824,14 @@ export function setupRoomObjects(scene) {
   );
   const deskLampLight = new PointLight(
     lampLightColor,
-    lampIntensity * 0.8,
-    lampDistance * 0.8,
+    lampIntensity * 0.7,
+    lampDistance * 0.6,
     lampDecay
-  );
-  deskLampLight.position.set(0, deskLampShadeY - 0.05, 0); // Position relative to group
+  ); // Dimmer desk lamp
+  deskLampLight.position.set(0, deskLampShadeY - 0.05, 0);
   deskLampLight.castShadow = true;
-  deskLampLight.shadow.mapSize.width = 512;
-  deskLampLight.shadow.mapSize.height = 512;
+  deskLampLight.shadow.mapSize.width = 256;
+  deskLampLight.shadow.mapSize.height = 256;
   deskLampLight.shadow.bias = -0.005;
   deskLampLight.name = "deskLampLight";
   deskLampGroup.add(deskLampLight);
@@ -923,17 +889,17 @@ export function setupRoomObjects(scene) {
     smallTableWorldPos.x,
     tableHeight,
     smallTableWorldPos.z
-  );
+  ); // Use calculated position
   const tableLampLight = new PointLight(
     lampLightColor,
-    lampIntensity * 0.7,
-    lampDistance * 0.7,
+    lampIntensity * 0.6,
+    lampDistance * 0.5,
     lampDecay
-  );
+  ); // Dimmer table lamp
   tableLampLight.position.set(0, tableLampShadeY_Table - 0.05, 0);
   tableLampLight.castShadow = true;
-  tableLampLight.shadow.mapSize.width = 512;
-  tableLampLight.shadow.mapSize.height = 512;
+  tableLampLight.shadow.mapSize.width = 256;
+  tableLampLight.shadow.mapSize.height = 256;
   tableLampLight.shadow.bias = -0.005;
   tableLampLight.name = "tableLampLight";
   tableLampGroup.add(tableLampLight);
@@ -944,7 +910,6 @@ export function setupRoomObjects(scene) {
 
   // --- STATIC MESHES for Puzzles ---
   console.log("Creating static meshes for potential puzzles...");
-
   // Pressure Plate Mesh
   const plateSize = 0.6;
   const plateThickness = 0.05;
@@ -962,7 +927,6 @@ export function setupRoomObjects(scene) {
   pressurePlateMesh.receiveShadow = true;
   scene.add(pressurePlateMesh);
   addCollisionObject(pressurePlateMesh);
-
   // Final Keypad Mesh
   const keypadWidth = 0.4;
   const keypadHeight = 0.5;
@@ -985,7 +949,6 @@ export function setupRoomObjects(scene) {
   scene.add(finalKeypadMesh);
   addInteractableObject(finalKeypadMesh);
   addCollisionObject(finalKeypadMesh);
-
   // Wires Panel Trigger Mesh
   const wiresTriggerGeo = new PlaneGeometry(0.5, 0.7);
   const wiresTriggerMesh = new Mesh(wiresTriggerGeo, wiresTriggerMaterial);
@@ -999,7 +962,6 @@ export function setupRoomObjects(scene) {
   };
   scene.add(wiresTriggerMesh);
   addInteractableObject(wiresTriggerMesh);
-
   // Simon Says Trigger Mesh
   const simonTriggerGeo = new BoxGeometry(0.6, 0.6, 0.05);
   const simonTriggerMesh = new Mesh(simonTriggerGeo, simonTriggerMaterial);
@@ -1013,7 +975,6 @@ export function setupRoomObjects(scene) {
   scene.add(simonTriggerMesh);
   addInteractableObject(simonTriggerMesh);
   addCollisionObject(simonTriggerMesh);
-
   // Symbol Matching Object Mesh (Book)
   const symbolBookGeo = new BoxGeometry(0.4, 0.05, 0.3);
   const symbolBookMesh = new Mesh(symbolBookGeo, symbolBookMaterial);
@@ -1034,7 +995,6 @@ export function setupRoomObjects(scene) {
   scene.add(symbolBookMesh);
   addInteractableObject(symbolBookMesh);
   addCollisionObject(symbolBookMesh);
-
   // Projector Puzzle Object Mesh
   const projectorGeo = new BoxGeometry(0.3, 0.25, 0.4);
   const projectorMesh = new Mesh(projectorGeo, projectorMaterial);
@@ -1064,15 +1024,15 @@ export function createExitDoor(scene) {
   const doorHeight = 2.1;
   const doorDepth = 0.1;
   const doorGeo = new BoxGeometry(doorWidth, doorHeight, doorDepth);
-  // Using a basic color material for the door
   const doorMat = new MeshStandardMaterial({
     color: 0x6f4e37,
-    roughness: 0.7,
+    roughness: 0.8,
     metalness: 0.1,
-  });
+  }); // Darker wood door
   const exitDoor = new Mesh(doorGeo, doorMat);
-  exitDoor.position.set(ROOM_SIZE.width / 2 - doorDepth / 2, doorHeight / 2, 0); // Place on right wall edge
-  exitDoor.rotation.y = Math.PI / 2; // Rotate to face into room (relative to wall)
+  // Position on right wall edge, slightly recessed
+  exitDoor.position.set(ROOM_SIZE.width / 2 - 0.05, doorHeight / 2, 0);
+  exitDoor.rotation.y = Math.PI / 2;
   exitDoor.castShadow = true;
   exitDoor.receiveShadow = true;
   exitDoor.name = "exitDoor";
@@ -1109,7 +1069,7 @@ export function resetMeshVisualState(mesh) {
           mesh.position.copy(mesh.userData.originalPos);
         break;
       case "airVent":
-        mat.color?.setHex(0xcccccc); // Grey metallic color
+        mat.color?.setHex(0xbbbbbb); // Grey metallic color
         mat.emissive?.setHex(0x000000);
         mat.emissiveIntensity = 0;
         if (mesh.userData.originalPos)
@@ -1128,11 +1088,13 @@ export function resetMeshVisualState(mesh) {
       case "wiresPuzzle_Trigger":
         mat.color?.setHex(0x661111);
         mat.emissive?.setHex(0x220000);
-        break;
+        mat.emissiveIntensity = 0.2;
+        break; // Restore base emissive
       case "simonSays_Trigger":
         mat.color?.setHex(0x111144);
         mat.emissive?.setHex(0x000011);
-        break;
+        mat.emissiveIntensity = 0.3;
+        break; // Restore base emissive
       case "symbolMatching_Object":
         mat.color?.setHex(0xeeeecc);
         break;
@@ -1152,14 +1114,7 @@ export function resetMeshVisualState(mesh) {
       case "exitDoor":
         mat.color?.setHex(0x6f4e37);
         break; // Reset color
-      // Reset books if they are static (handled in cleanupPuzzles instead now)
-      default:
-        // Handle book reset specifically if needed, or rely on cleanupPuzzles traversal
-        if (mesh.name?.startsWith("bookPuzzle_")) {
-          mat.color?.setHex(mesh.userData?.initialColor || 0x888888);
-          mat.emissiveIntensity = 0;
-        }
-        break;
+      // Books handled separately in puzzles.js cleanup
     }
     if (mat.needsUpdate !== undefined) mat.needsUpdate = true;
   } catch (error) {

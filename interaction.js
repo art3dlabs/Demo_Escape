@@ -8,7 +8,7 @@ import {
   getControls,
   PLAYER_HEIGHT,
   INTERACTION_DISTANCE,
-  getGameState, // <<< ADDED THIS IMPORT
+  getGameState, // <<< ENSURE THIS IS PRESENT
 } from "./main.js";
 // ... rest of the file
 

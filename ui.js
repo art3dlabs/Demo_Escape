@@ -594,28 +594,20 @@ export function setupUIEventListeners() {
 
   const controls = getControls(); // Get controls early for lock/unlock
 
+  // Inside ui.js -> setupUIEventListeners()
+
   // --- Blocker / Start ---
   const blocker = getUIElement("blocker");
   const startPrompt = getUIElement("startPrompt");
   if (blocker && startPrompt) {
     blocker.addEventListener("click", (e) => {
-      // Only trigger lock if the click target IS the start prompt
+      // Only trigger game start if the click target IS the start prompt
       if (getGameState() === GAME_STATES.MENU && e.target === startPrompt) {
-        console.log("StartPrompt clicked: Attempting lock...");
-        if (controls && !controls.isLocked) {
-          try {
-            controls.lock(); // Lock should trigger the 'lock' event listener below
-          } catch (err) {
-            console.error("Error attempting pointer lock:", err);
-            const instructions =
-              blocker.querySelector("#instructions") || startPrompt;
-            if (instructions)
-              instructions.innerHTML =
-                "Error al iniciar el control del puntero.<br/>Asegúrate de que la ventana está enfocada y haz clic de nuevo.";
-          }
-        } else if (!controls) {
-          console.error("Cannot start game: Controls not available.");
-        }
+        console.log("StartPrompt clicked: Calling startGame...");
+        playSound("button_confirm"); // Play start sound
+        startGame(); // <<< CALL startGame DIRECTLY
+        // startGame will call setGameState(PLAYING), which will handle the controls.lock() attempt.
+        // REMOVED: if (controls && !controls.isLocked) controls.lock();
       }
     });
   } else {
@@ -624,64 +616,55 @@ export function setupUIEventListeners() {
     );
   }
 
+  // Inside ui.js -> setupUIEventListeners()
+
   // --- Pointer Lock/Unlock Events ---
   if (controls) {
     controls.addEventListener("lock", () => {
-      console.log("Pointer locked event.");
+      console.log("Pointer locked event received.");
       const currentState = getGameState();
-      // Determine action based on state BEFORE lock occurred
-      if (currentState === GAME_STATES.MENU) {
-        startGame(); // Start game transitions state to PLAYING
-      } else if (
-        [
-          // If lock occurs while paused or in a modal, resume playing
-          GAME_STATES.PAUSED,
-          GAME_STATES.PUZZLE,
-          GAME_STATES.PUZZLE_2D,
-          GAME_STATES.INVENTORY,
-          GAME_STATES.MINIGAME,
-          GAME_STATES.HELP_CONFIRM,
-        ].includes(currentState)
-      ) {
+
+      // *** CRITICAL CHANGE: Set state to PLAYING on successful lock ***
+      // This handles both starting the game AND resuming from pause/modals
+      if (currentState !== GAME_STATES.PLAYING) {
         console.log(
-          `Resuming to PLAYING from ${currentState} due to pointer lock.`
+          `Pointer locked - Setting state to PLAYING from ${currentState}.`
         );
-        setGameState(GAME_STATES.PLAYING);
-      } else if (currentState === GAME_STATES.PLAYING) {
+        setGameState(GAME_STATES.PLAYING); // <<< SET STATE HERE
+      } else {
         console.log(
-          "Pointer locked while already playing (no state change needed)."
+          "Pointer locked while already PLAYING (no state change needed)."
         );
-        // Ensure UI reflects playing state just in case
-        showOverlay(GAME_STATES.PLAYING);
-        updateHUD();
       }
-      // Reset hover check timer in main.js if needed
-      // if (setLastHoverCheckTime) setLastHoverCheckTime(performance.now());
+      // Optionally reset interaction check timer here if needed
+      // const { setLastHoverCheckTime } = await import('./main.js'); // If exported
+      // setLastHoverCheckTime(performance.now());
     });
 
     controls.addEventListener("unlock", () => {
-      console.log("Pointer unlocked event.");
+      const lockedStatusRightAfterUnlockEvent = controls?.isLocked;
+      console.log(
+        `Pointer unlocked event received. controls.isLocked is NOW: ${lockedStatusRightAfterUnlockEvent}`
+      ); // Check status timing
+
       const ignoreUnlock = getIgnoreNextUnlockFlag();
       if (ignoreUnlock) {
-        setIgnoreNextUnlockFlag(false); // Consume the flag
-        console.log(
-          "Unlock event intentionally ignored (modal/overlay closed)."
-        );
-        return; // Do nothing if the unlock was expected
+        setIgnoreNextUnlockFlag(false);
+        console.log("Unlock event intentionally ignored.");
+        return;
       }
-
-      // If playing and unlock was unexpected (e.g., Esc, Alt+Tab), pause
-      const currentState = getGameState();
-      if (currentState === GAME_STATES.PLAYING) {
-        console.log("Unexpected unlock while playing -> PAUSING game.");
-        setGameState(GAME_STATES.PAUSED);
+      // If playing and unlock was unexpected, pause
+      // Check current state *before* changing it
+      const currentStateBeforePause = getGameState();
+      if (currentStateBeforePause === GAME_STATES.PLAYING) {
+        console.log("Unexpected unlock while playing -> Setting PAUSED state.");
+        setGameState(GAME_STATES.PAUSED); // This will call showOverlay, etc.
       } else {
-        // Unlock happened in a state where it's expected (Menu, already Paused, etc.)
         console.log(
-          `Unlock event in state ${currentState} (ignored or handled by state logic).`
+          `Unlock event in state ${currentStateBeforePause} (ignored or handled by state logic).`
         );
       }
-      updateTooltip(""); // Hide tooltip on any unlock
+      updateTooltip(""); // Hide tooltip on unlock
     });
   } else {
     console.error("PointerLockControls not found during UI listener setup!");
@@ -690,65 +673,54 @@ export function setupUIEventListeners() {
   // --- Keyboard Listeners ---
   document.addEventListener("keydown", (e) => {
     const gameState = getGameState();
-    const puzzleInput = getUIElement("puzzleInput"); // Cache for check
+    const controlsInstance = getControls(); // Use a consistent variable name
+    const isLocked = controlsInstance?.isLocked;
+    const keyLower = e.key.toLowerCase(); // Lowercase once
+
+    // --- ADD DETAILED LOGGING (Keep this for testing) ---
+    console.log(
+      `KEYDOWN -> Key: ${e.key}, State: ${gameState}, Locked: ${isLocked}`
+    );
+    // ---
 
     // --- Escape Key Handler ---
     if (e.key === "Escape") {
+      // Use e.key directly for Escape
       console.log(`Escape key pressed in state: ${gameState}`);
       switch (gameState) {
         case GAME_STATES.PLAYING:
           setGameState(GAME_STATES.PAUSED);
           break;
         case GAME_STATES.PAUSED:
-          if (controls) {
+          // Request lock to resume
+          if (controlsInstance && !isLocked) {
+            // Check if already locked
             try {
-              controls.lock();
+              console.log("Resuming from PAUSED: Attempting lock...");
+              controlsInstance.lock(); // Lock attempt will trigger 'lock' event handler
             } catch (err) {
               console.error("Lock error on resume:", err);
             }
           }
-          break; // Resume
-        case GAME_STATES.PUZZLE:
-          setIgnoreNextUnlockFlag(true);
-          hidePuzzleModal();
-          break;
-        case GAME_STATES.PUZZLE_2D:
-          setIgnoreNextUnlockFlag(true);
-          setGameState(GAME_STATES.PLAYING);
-          break; // Close 2D overlay
-        case GAME_STATES.INVENTORY:
-          setIgnoreNextUnlockFlag(true);
-          hideInventoryModal();
-          break;
-        case GAME_STATES.MINIGAME:
-          setIgnoreNextUnlockFlag(true);
-          hideMinigameUI(false, true);
-          break; // Close minigame (manually)
-        case GAME_STATES.HELP_CONFIRM:
-          setIgnoreNextUnlockFlag(true);
-          hideHelpConfirmModal();
-          break;
-        // No Escape action needed for MENU, VICTORY, GAMEOVER_TIMEUP
+          break; // Lock handler sets PLAYING state
+        // ... (rest of escape cases) ...
       }
-      e.preventDefault(); // Prevent default browser actions for Escape
-      return; // Stop further key processing for Escape
-    }
-
-    // --- Inventory Key Handler ---
-    if (e.key.toLowerCase() === "i" || e.key === "Tab") {
-      if (gameState === GAME_STATES.PLAYING) {
-        showInventoryModal(); // Handles async import and state change
-      } else if (gameState === GAME_STATES.INVENTORY) {
-        setIgnoreNextUnlockFlag(true); // Prevent pause on unlock
-        hideInventoryModal();
-      }
-      e.preventDefault(); // Prevent default Tab behavior, 'i' typing
+      e.preventDefault();
       return;
     }
 
-    // --- Gameplay Keys (Only when Playing and Locked) ---
-    if (gameState === GAME_STATES.PLAYING && controls?.isLocked) {
-      const keyLower = e.key.toLowerCase();
+    // --- Inventory Key Handler ---
+    if (keyLower === "i" || e.key === "Tab") {
+      // Check lowercase 'i'
+      // ... inventory logic ...
+      e.preventDefault();
+      return;
+    }
+
+    // --- Gameplay Keys (Check state and lock status) ---
+    if (gameState === GAME_STATES.PLAYING && isLocked) {
+      console.log(`   ✅ Processing Gameplay key: ${keyLower}`); // Confirmation log
+
       if (
         [
           "w",
@@ -762,233 +734,365 @@ export function setupUIEventListeners() {
           "arrowright",
         ].includes(keyLower)
       ) {
-        handleKeyDown(keyLower); // Pass movement keys
+        console.log(`      -> Calling handleKeyDown for movement: ${keyLower}`);
+        handleKeyDown(keyLower);
         e.preventDefault();
       } else if (keyLower === "e") {
+        console.log(`      -> Calling handleInteraction`);
         handleInteraction();
         e.preventDefault();
-      } // Interact
-      else if (keyLower === "g") {
+      } else if (keyLower === "g") {
+        console.log(`      -> Calling dropSelectedItem`);
         dropSelectedItem();
         e.preventDefault();
-      } // Drop selected
-      else if (keyLower === "q") {
+      } else if (keyLower === "q") {
+        console.log(`      -> Calling deselectItem`);
         deselectItem();
         e.preventDefault();
-      } // Deselect (no drop)
+      }
+    } else if (
+      [
+        "w",
+        "a",
+        "s",
+        "d",
+        "e",
+        "g",
+        "q",
+        " ",
+        "arrowup",
+        "arrowdown",
+        "arrowleft",
+        "arrowright",
+      ].includes(keyLower)
+    ) {
+      // Log only if it *was* a gameplay key but conditions failed
+      console.warn(
+        `   ❌ Gameplay key '${keyLower}' ignored. State=${gameState}, Locked=${isLocked}`
+      );
     }
 
     // --- Puzzle Modal Enter Key ---
     if (gameState === GAME_STATES.PUZZLE && e.key === "Enter") {
-      // Check if the puzzle input is focused
+      const puzzleInput = getUIElement("puzzleInput");
       if (puzzleInput && document.activeElement === puzzleInput) {
         submitPuzzleModalInput();
-        e.preventDefault(); // Prevent potential form submission
-      }
-    }
-  });
-
-  document.addEventListener("keyup", (e) => {
-    const gameState = getGameState();
-    // Pass movement keyup events ONLY when playing and locked
-    if (gameState === GAME_STATES.PLAYING && controls?.isLocked) {
-      const keyLower = e.key.toLowerCase();
-      if (
-        [
-          "w",
-          "a",
-          "s",
-          "d",
-          " ",
-          "arrowup",
-          "arrowdown",
-          "arrowleft",
-          "arrowright",
-        ].includes(keyLower)
-      ) {
-        handleKeyUp(keyLower);
         e.preventDefault();
       }
     }
   });
-
-  // --- Mouse Click Listeners ---
-  window.addEventListener("mousedown", (event) => {
-    const gameState = getGameState();
-
-    // Left Click (Button 0)
-    if (event.button === 0) {
-      // Interaction/Place Item in Game World
-      if (gameState === GAME_STATES.PLAYING && controls?.isLocked) {
-        // Check if click originated on an interactive UI element (modal, button inside HUD etc.)
-        let targetElement = event.target;
-        let clickOnUI = false;
-        while (targetElement && targetElement !== document.body) {
-          // Check common UI containers or elements that should block world interaction
-          if (
-            targetElement.closest(
-              ".modal-overlay, .overlay-content, #hud button, #hud select"
-            )
-          ) {
-            clickOnUI = true;
-            break;
-          }
-          targetElement = targetElement.parentElement;
-        }
-
-        if (!clickOnUI) {
-          handleInteraction(); // Interact with world
-          // event.preventDefault(); // Prevent text selection if needed
-        } else {
-          console.log("Ignoring world interaction click on UI element.");
-        }
-      }
-      // Start Prompt Click (handled by blocker listener, but catch here too)
-      else if (
-        gameState === GAME_STATES.MENU &&
-        event.target === getUIElement("startPrompt")
-      ) {
-        // Blocker listener should handle lock attempt
-        event.preventDefault();
-      }
-    }
-    // Right Click (Button 2) - Deselect Item
-    else if (event.button === 2) {
-      if (
-        (gameState === GAME_STATES.PLAYING ||
-          gameState === GAME_STATES.INVENTORY) &&
-        getSelectedItem()
-      ) {
-        deselectItem(); // Deselect current item
-      }
-      event.preventDefault(); // Always prevent context menu
-    }
-  });
-
-  // Prevent context menu globally (right-click already handled)
-  document.addEventListener("contextmenu", (e) => e.preventDefault());
-
-  // --- Window Resize ---
-  window.addEventListener("resize", onWindowResize);
-
-  // --- UI Button/Element Listeners ---
-  // Helper to add listener if element exists
-  const addListener = (id, event, handler, useCapture = false) => {
-    const element = getUIElement(id);
-    if (element) {
-      element.addEventListener(event, handler, useCapture);
-    } else {
-      // Warn only once if element is missing during setup
-      // console.warn(`Listener not added: Element #${id} not found.`);
-    }
-  };
-
-  // Main Menu
-  addListener("difficultySelect", "change", updateMenuPuzzleCountDisplay);
-  // Start button click is handled by the blocker overlay listener targeting #startPrompt
-
-  // Puzzle Modal
-  addListener("puzzleSubmitButton", "click", submitPuzzleModalInput);
-  addListener("puzzleCloseButton", "click", () => {
-    setIgnoreNextUnlockFlag(true);
-    hidePuzzleModal();
-  });
-
-  // Puzzle Overlay 2D
-  addListener("puzzleOverlayCloseButton", "click", () => {
-    setIgnoreNextUnlockFlag(true);
-    setGameState(GAME_STATES.PLAYING);
-  });
-
-  // Inventory
-  const inventoryItemsContainer = getUIElement("inventoryItems");
-  if (inventoryItemsContainer) {
-    // Use delegation: listen on container, let inventory.js handle clicks on items
-    inventoryItemsContainer.addEventListener("click", (event) => {
-      // Pass the clicked element to inventory.js handler if needed
-      handleInventoryClick(event); // Ensure handleInventoryClick handles event target
-    });
-  }
-  addListener("inventoryCloseButton", "click", () => {
-    setIgnoreNextUnlockFlag(true);
-    hideInventoryModal();
-  });
-
-  // Minigame
-  addListener("minigameCloseButton", "click", () => {
-    setIgnoreNextUnlockFlag(true);
-    hideMinigameUI(false, true);
-  }); // Manually closed
-
-  // Pause Menu (uses gameoverScreen elements)
-  addListener("resumeButton", "click", () => {
-    if (
-      getGameState() === GAME_STATES.PAUSED &&
-      controls &&
-      !controls.isLocked
-    ) {
-      try {
-        controls.lock();
-      } catch (err) {
-        console.error("Lock error on resume:", err);
-      }
-    }
-  });
-  addListener("restartButtonPause", "click", () => {
-    playSound("ui_confirm");
-    resetGame();
-  });
-
-  // Victory Screen
-  addListener("restartButtonVictory", "click", () => {
-    playSound("ui_confirm");
-    resetGame();
-  });
-
-  // Time Up Screen
-  addListener("restartButtonTimeup", "click", () => {
-    playSound("ui_confirm");
-    resetGame();
-  });
-
-  // Help System
-  const helpButton = getUIElement("helpButton"); // Cache ref
-  addListener("helpButton", "click", () => {
-    if (getGameState() === GAME_STATES.PAUSED && !areHintsEnabled()) {
-      playSound("ui_modal_open");
-      setGameState(GAME_STATES.HELP_CONFIRM);
-    } else if (areHintsEnabled()) {
-      updateTooltip("Las pistas ya están activadas.", 2000);
-    } else {
-      updateTooltip(
-        "Abre el menú de pausa [Esc] para activar las pistas.",
-        3000
-      );
-    }
-  });
-  addListener("confirmHelpBtn", "click", () => {
-    playSound("ui_confirm");
-    applyHelpPenalty();
-    setHintsEnabled(true);
-    updateHUD(); // Update timer/indicators
-    // Disable help button after confirmation
-    if (helpButton) {
-      helpButton.disabled = true;
-      helpButton.title = "Pistas Activadas";
-      helpButton.style.opacity = "0.5";
-      helpButton.style.cursor = "default";
-    }
-    setIgnoreNextUnlockFlag(true);
-    setGameState(GAME_STATES.PAUSED); // Return to pause menu
-  });
-  addListener("cancelHelpBtn", "click", () => {
-    playSound("ui_cancel");
-    setIgnoreNextUnlockFlag(true);
-    hideHelpConfirmModal(); // Go back to pause menu
-  });
-
-  console.log("UI event listeners setup complete.");
 }
+
+//else {
+//  console.error("PointerLockControls not found during UI listener setup!");
+//  }
+
+// --- Keyboard Listeners ---
+document.addEventListener("keydown", (e) => {
+  const gameState = getGameState();
+  const puzzleInput = getUIElement("puzzleInput"); // Cache for check
+
+  // --- Escape Key Handler ---
+  if (e.key === "Escape") {
+    console.log(`Escape key pressed in state: ${gameState}`);
+    switch (gameState) {
+      case GAME_STATES.PLAYING:
+        setGameState(GAME_STATES.PAUSED);
+        break;
+      case GAME_STATES.PAUSED:
+        if (controls) {
+          try {
+            controls.lock();
+          } catch (err) {
+            console.error("Lock error on resume:", err);
+          }
+        }
+        break; // Resume
+      case GAME_STATES.PUZZLE:
+        setIgnoreNextUnlockFlag(true);
+        hidePuzzleModal();
+        break;
+      case GAME_STATES.PUZZLE_2D:
+        setIgnoreNextUnlockFlag(true);
+        setGameState(GAME_STATES.PLAYING);
+        break; // Close 2D overlay
+      case GAME_STATES.INVENTORY:
+        setIgnoreNextUnlockFlag(true);
+        hideInventoryModal();
+        break;
+      case GAME_STATES.MINIGAME:
+        setIgnoreNextUnlockFlag(true);
+        hideMinigameUI(false, true);
+        break; // Close minigame (manually)
+      case GAME_STATES.HELP_CONFIRM:
+        setIgnoreNextUnlockFlag(true);
+        hideHelpConfirmModal();
+        break;
+      // No Escape action needed for MENU, VICTORY, GAMEOVER_TIMEUP
+    }
+    e.preventDefault(); // Prevent default browser actions for Escape
+    return; // Stop further key processing for Escape
+  }
+
+  // --- Inventory Key Handler ---
+  if (e.key.toLowerCase() === "i" || e.key === "Tab") {
+    if (gameState === GAME_STATES.PLAYING) {
+      showInventoryModal(); // Handles async import and state change
+    } else if (gameState === GAME_STATES.INVENTORY) {
+      setIgnoreNextUnlockFlag(true); // Prevent pause on unlock
+      hideInventoryModal();
+    }
+    e.preventDefault(); // Prevent default Tab behavior, 'i' typing
+    return;
+  }
+
+  // --- Gameplay Keys (Only when Playing and Locked) ---
+  if (gameState === GAME_STATES.PLAYING && controls?.isLocked) {
+    const keyLower = e.key.toLowerCase();
+    if (
+      [
+        "w",
+        "a",
+        "s",
+        "d",
+        " ",
+        "arrowup",
+        "arrowdown",
+        "arrowleft",
+        "arrowright",
+      ].includes(keyLower)
+    ) {
+      handleKeyDown(keyLower); // Pass movement keys
+      e.preventDefault();
+    } else if (keyLower === "e") {
+      handleInteraction();
+      e.preventDefault();
+    } // Interact
+    else if (keyLower === "g") {
+      dropSelectedItem();
+      e.preventDefault();
+    } // Drop selected
+    else if (keyLower === "q") {
+      deselectItem();
+      e.preventDefault();
+    } // Deselect (no drop)
+  }
+
+  // --- Puzzle Modal Enter Key ---
+  if (gameState === GAME_STATES.PUZZLE && e.key === "Enter") {
+    // Check if the puzzle input is focused
+    if (puzzleInput && document.activeElement === puzzleInput) {
+      submitPuzzleModalInput();
+      e.preventDefault(); // Prevent potential form submission
+    }
+  }
+});
+
+document.addEventListener("keyup", (e) => {
+  const gameState = getGameState();
+  // *** FIX: Get controls instance inside this handler's scope ***
+  const controlsInstance = getControls();
+  const isLocked = controlsInstance?.isLocked;
+  // *** END FIX ***
+
+  // Pass movement keyup events ONLY when playing and locked
+  // *** FIX: Use the locally fetched controlsInstance and isLocked ***
+  if (gameState === GAME_STATES.PLAYING && isLocked) {
+    const keyLower = e.key.toLowerCase();
+    if (
+      [
+        "w",
+        "a",
+        "s",
+        "d",
+        " ",
+        "arrowup",
+        "arrowdown",
+        "arrowleft",
+        "arrowright",
+      ].includes(keyLower)
+    ) {
+      // console.log(`   ✅ Processing KeyUp for movement: ${keyLower}`); // Optional log
+      handleKeyUp(keyLower);
+      e.preventDefault();
+    }
+  }
+  // else { // Optional: Log ignored keyup
+  //    if (["w", "a", "s", "d", " ", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(e.key.toLowerCase())) {
+  //        console.warn(`   ❌ KeyUp '${e.key}' ignored. State=${gameState}, Locked=${isLocked}`);
+  //    }
+  // }
+});
+
+// --- Mouse Click Listeners ---
+window.addEventListener("mousedown", (event) => {
+  const gameState = getGameState();
+
+  // Left Click (Button 0)
+  if (event.button === 0) {
+    // Interaction/Place Item in Game World
+    if (gameState === GAME_STATES.PLAYING && controls?.isLocked) {
+      // Check if click originated on an interactive UI element (modal, button inside HUD etc.)
+      let targetElement = event.target;
+      let clickOnUI = false;
+      while (targetElement && targetElement !== document.body) {
+        // Check common UI containers or elements that should block world interaction
+        if (
+          targetElement.closest(
+            ".modal-overlay, .overlay-content, #hud button, #hud select"
+          )
+        ) {
+          clickOnUI = true;
+          break;
+        }
+        targetElement = targetElement.parentElement;
+      }
+
+      if (!clickOnUI) {
+        handleInteraction(); // Interact with world
+        // event.preventDefault(); // Prevent text selection if needed
+      } else {
+        console.log("Ignoring world interaction click on UI element.");
+      }
+    }
+    // Start Prompt Click (handled by blocker listener, but catch here too)
+    else if (
+      gameState === GAME_STATES.MENU &&
+      event.target === getUIElement("startPrompt")
+    ) {
+      // Blocker listener should handle lock attempt
+      event.preventDefault();
+    }
+  }
+  // Right Click (Button 2) - Deselect Item
+  else if (event.button === 2) {
+    if (
+      (gameState === GAME_STATES.PLAYING ||
+        gameState === GAME_STATES.INVENTORY) &&
+      getSelectedItem()
+    ) {
+      deselectItem(); // Deselect current item
+    }
+    event.preventDefault(); // Always prevent context menu
+  }
+});
+
+// Prevent context menu globally (right-click already handled)
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+// --- Window Resize ---
+window.addEventListener("resize", onWindowResize);
+
+// --- UI Button/Element Listeners ---
+// Helper to add listener if element exists
+const addListener = (id, event, handler, useCapture = false) => {
+  const element = getUIElement(id);
+  if (element) {
+    element.addEventListener(event, handler, useCapture);
+  } else {
+    // Warn only once if element is missing during setup
+    // console.warn(`Listener not added: Element #${id} not found.`);
+  }
+};
+
+// Main Menu
+addListener("difficultySelect", "change", updateMenuPuzzleCountDisplay);
+// Start button click is handled by the blocker overlay listener targeting #startPrompt
+
+// Puzzle Modal
+addListener("puzzleSubmitButton", "click", submitPuzzleModalInput);
+addListener("puzzleCloseButton", "click", () => {
+  setIgnoreNextUnlockFlag(true);
+  hidePuzzleModal();
+});
+
+// Puzzle Overlay 2D
+addListener("puzzleOverlayCloseButton", "click", () => {
+  setIgnoreNextUnlockFlag(true);
+  setGameState(GAME_STATES.PLAYING);
+});
+
+// Inventory
+const inventoryItemsContainer = getUIElement("inventoryItems");
+if (inventoryItemsContainer) {
+  // Use delegation: listen on container, let inventory.js handle clicks on items
+  inventoryItemsContainer.addEventListener("click", (event) => {
+    // Pass the clicked element to inventory.js handler if needed
+    handleInventoryClick(event); // Ensure handleInventoryClick handles event target
+  });
+}
+addListener("inventoryCloseButton", "click", () => {
+  setIgnoreNextUnlockFlag(true);
+  hideInventoryModal();
+});
+
+// Minigame
+addListener("minigameCloseButton", "click", () => {
+  setIgnoreNextUnlockFlag(true);
+  hideMinigameUI(false, true);
+}); // Manually closed
+
+// Pause Menu (uses gameoverScreen elements)
+addListener("resumeButton", "click", () => {
+  if (getGameState() === GAME_STATES.PAUSED && controls && !controls.isLocked) {
+    try {
+      controls.lock();
+    } catch (err) {
+      console.error("Lock error on resume:", err);
+    }
+  }
+});
+addListener("restartButtonPause", "click", () => {
+  playSound("ui_confirm");
+  resetGame();
+});
+
+// Victory Screen
+addListener("restartButtonVictory", "click", () => {
+  playSound("ui_confirm");
+  resetGame();
+});
+
+// Time Up Screen
+addListener("restartButtonTimeup", "click", () => {
+  playSound("ui_confirm");
+  resetGame();
+});
+
+// Help System
+const helpButton = getUIElement("helpButton"); // Cache ref
+addListener("helpButton", "click", () => {
+  if (getGameState() === GAME_STATES.PAUSED && !areHintsEnabled()) {
+    playSound("ui_modal_open");
+    setGameState(GAME_STATES.HELP_CONFIRM);
+  } else if (areHintsEnabled()) {
+    updateTooltip("Las pistas ya están activadas.", 2000);
+  } else {
+    updateTooltip("Abre el menú de pausa [Esc] para activar las pistas.", 3000);
+  }
+});
+addListener("confirmHelpBtn", "click", () => {
+  playSound("ui_confirm");
+  applyHelpPenalty();
+  setHintsEnabled(true);
+  updateHUD(); // Update timer/indicators
+  // Disable help button after confirmation
+  if (helpButton) {
+    helpButton.disabled = true;
+    helpButton.title = "Pistas Activadas";
+    helpButton.style.opacity = "0.5";
+    helpButton.style.cursor = "default";
+  }
+  setIgnoreNextUnlockFlag(true);
+  setGameState(GAME_STATES.PAUSED); // Return to pause menu
+});
+addListener("cancelHelpBtn", "click", () => {
+  playSound("ui_cancel");
+  setIgnoreNextUnlockFlag(true);
+  hideHelpConfirmModal(); // Go back to pause menu
+});
+
+console.log("UI event listeners setup complete.");
 
 // --- Window Resize Handler ---
 function onWindowResize() {

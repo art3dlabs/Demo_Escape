@@ -1,17 +1,18 @@
-import * as THREE from "three"; // Needed for object creation in setup
+import * as THREE from "three";
 import {
   getScene,
   getCamera,
   setGameState,
   GAME_STATES,
   areHintsEnabled,
-} from "./main.js"; // Import game state and utils
+} from "./main.js";
 import {
   updateTooltip,
   showPuzzleModalContent,
   hidePuzzleModal,
   showMinigameUI,
   hideMinigameUI,
+  getUIElement,
 } from "./ui.js";
 import {
   addItemToInventory,
@@ -19,40 +20,35 @@ import {
   getInventory,
   getSelectedItem,
   createPickupItem as createInvPickupItem,
-  clearInventory, // <<< ADDED THIS IMPORT
-} from "./inventory.js"; // Needs access to inventory
+  clearInventory,
+  deselectItem,
+} from "./inventory.js";
 import {
   addInteractableObject,
   removeInteractableObject,
-  getHeldObject, // Keep if puzzle logic needs to know about held items
-  clearHoveredObject, // Keep if puzzle logic needs to clear hover state
-  // Removed addCollisionObject and removeCollisionObject from here
-} from "./interaction.js"; // Needs to manage *interactable* status
-// <<< --- ADD THIS NEW IMPORT BLOCK --- >>>
-// Import collision functions from the correct module
-import { addCollisionObject, removeCollisionObject } from "./playerControls.js"; // <<< CORRECT SOURCE
-// <<< --- END OF NEW IMPORT BLOCK --- >>>
+  getHeldObject,
+  clearHoveredObject,
+} from "./interaction.js";
+import { addCollisionObject, removeCollisionObject } from "./playerControls.js";
 import { playSound } from "./audio.js";
-// Add getRoomSize here
-import { resetMeshVisualState, getRoomSize } from "./sceneSetup.js"; // <<< MODIFIED LINE
+// Import getRoomSize FROM SCENESETUP
+import { resetMeshVisualState, getRoomSize } from "./sceneSetup.js"; // <<< FIXED IMPORT
 
 // --- Global Puzzle State ---
-let activePuzzles = []; // Puzzles chosen for the current game instance
+let activePuzzles = [];
 let puzzlesSolvedCount = 0;
 
-// --- Puzzle Chain/Reward State (Managed by selectPuzzles) ---
-let assignedRewards = {}; // Map: puzzleId -> assignedRewardName
+// --- Puzzle Chain/Reward State ---
+let assignedRewards = {};
 
 // --- Specific Puzzle States ---
 let bookPuzzleSolved = false;
-let bookPuzzleEnabled = false; // Controlled by a signal reward
+let bookPuzzleEnabled = false;
 let firstBookClicked = null;
-const bookColorNames = ["Red", "Green", "Blue", "Purple"]; // Optional names
-const bookSwapCorrectSequence = [0x006400, 0x8b0000, 0x4b0082, 0x00008b]; // Correct (Verde, Rojo, Violeta, Azul)
+const bookColorNames = ["Red", "Green", "Blue", "Purple"];
+const bookSwapCorrectSequence = [0x006400, 0x8b0000, 0x4b0082, 0x00008b];
 
 // --- Available Rewards Pool ---
-// This list contains *all* possible items/clues puzzles can grant.
-// selectPuzzles will pick from this list to assign rewards dynamically.
 const AVAILABLE_REWARDS = [
   "Item_Llave_Dorada",
   "Item_Llave_Pequeña",
@@ -66,19 +62,20 @@ const AVAILABLE_REWARDS = [
   "Clue_Password_Panel (HIDDEN)",
   "Item_Diapositiva",
   "Item_Bateria",
-  "Clue_Codigo_Final (DOOR456)", // Door might need this
+  "Clue_Codigo_Final (DOOR456)",
   "Clue_Symbol_Key (Estrella=A...)",
   "Clue_Under_Cube (Símbolo X?)",
-  // <<< ADD PLACEHOLDERS >>>
+  // Added placeholders and ensured master key exists
   "Item_Placeholder_1",
   "Clue_Placeholder_1",
   "Item_Placeholder_2",
   "Clue_Placeholder_2",
-  "Item_Llave_Maestra", // Ensure Master Key is available for the door
-  "Item_Placeholder_3", // Add a few more just in case
+  "Item_Llave_Maestra",
+  "Item_Placeholder_3",
   "Clue_Placeholder_3",
+  "Item_Placeholder_4", // Added more
 ];
-let availableRewardsPool = []; // Will be populated in selectPuzzles
+let availableRewardsPool = [];
 
 // =============================================================================
 // PUZZLE DEFINITIONS (allPuzzles Array)
@@ -1922,61 +1919,52 @@ export function selectPuzzles(difficultyValue, scene) {
     `--- Selecting Puzzles (Difficulty Value: ${difficultyValue}) ---`
   );
   activePuzzles = [];
-  assignedRewards = {}; // Reset assigned rewards
-  availableRewardsPool = [...AVAILABLE_REWARDS]; // Reset available rewards pool
+  assignedRewards = {};
+  availableRewardsPool = [...AVAILABLE_REWARDS];
   puzzlesSolvedCount = 0;
 
   let targetPuzzleCount;
   let difficultyName;
-
-  // Determine target count and filter pool based on difficulty
-  const basePuzzlePool = allPuzzles.filter((p) => p.id !== "escapeDoor"); // Exclude door initially
+  const basePuzzlePool = allPuzzles.filter((p) => p.id !== "escapeDoor");
   let filteredPuzzlePool = [...basePuzzlePool];
 
+  // Determine target count and filter based on difficulty (keep this logic)
   if (difficultyValue === 4) {
-    // Easy
     targetPuzzleCount = 4;
     difficultyName = "Easy";
     filteredPuzzlePool = filteredPuzzlePool.filter(
       (p) => !p.difficultyRestriction
-    ); // Remove restricted
+    );
   } else if (difficultyValue === 7) {
-    // Medium
     targetPuzzleCount = 7;
     difficultyName = "Medium";
     filteredPuzzlePool = filteredPuzzlePool.filter(
       (p) => !p.difficultyRestriction
-    ); // Remove restricted
+    );
   } else if (difficultyValue === 10) {
-    // Difficult
     targetPuzzleCount = 10;
     difficultyName = "Difficult";
-    // No filter needed, all puzzles allowed
   } else {
-    // Expert (All) or Invalid -> Default to Expert
-    targetPuzzleCount = basePuzzlePool.length; // Use all available non-door puzzles
+    targetPuzzleCount = basePuzzlePool.length;
     difficultyName = "Expert";
-    // No filter needed
   }
 
-  // Ensure target count doesn't exceed available filtered puzzles
   if (targetPuzzleCount > filteredPuzzlePool.length) {
     console.warn(
-      `Requested ${targetPuzzleCount} puzzles for ${difficultyName}, but only ${filteredPuzzlePool.length} suitable puzzles available. Using ${filteredPuzzlePool.length}.`
+      `Requested ${targetPuzzleCount} puzzles for ${difficultyName}, but only ${filteredPuzzlePool.length} suitable. Using ${filteredPuzzlePool.length}.`
     );
     targetPuzzleCount = filteredPuzzlePool.length;
   }
-
   console.log(
     `Targeting ${targetPuzzleCount} puzzles for ${difficultyName} difficulty.`
   );
 
   // --- Forward Chain Generation ---
   let puzzleChainIds = [];
-  let currentSimulatedInventory = []; // Simulate item/clue/signal acquisition
-  let remainingPool = [...filteredPuzzlePool]; // Puzzles left to choose from
+  let currentSimulatedInventory = [];
+  let remainingPool = [...filteredPuzzlePool];
   let safetyCounter = 0;
-  const maxLoops = targetPuzzleCount * 3; // Safety break
+  const maxLoops = targetPuzzleCount * 3;
 
   while (
     puzzleChainIds.length < targetPuzzleCount &&
@@ -1984,8 +1972,6 @@ export function selectPuzzles(difficultyValue, scene) {
     safetyCounter < maxLoops
   ) {
     safetyCounter++;
-
-    // Find candidates whose requirements are met by simulated inventory
     let candidates = remainingPool.filter((p) => {
       const reqCheck = checkRequirementsSimulated(
         p.requires,
@@ -1994,106 +1980,89 @@ export function selectPuzzles(difficultyValue, scene) {
       return reqCheck.met;
     });
 
-    // console.log(` Loop ${safetyCounter}: Chain ${puzzleChainIds.length}/${targetPuzzleCount}. SimInv: [${currentSimulatedInventory.join(', ')}]. Candidates: [${candidates.map(p=>p.id).join(', ')}]`);
-
     if (candidates.length > 0) {
-      // Select one candidate randomly
       let randomIndex = Math.floor(Math.random() * candidates.length);
       let nextPuzzle = candidates[randomIndex];
       console.log(`  Selected candidate: ${nextPuzzle.id}`);
-
-      // Add to chain
       puzzleChainIds.push(nextPuzzle.id);
 
-      // Assign Reward if applicable
+      // *** REFINED SIMULATION STEP FOR CUBE ***
+      if (nextPuzzle.id === "demo_holdableCube") {
+        console.log(`   Adding Item_Cubo_Azul to simulated inventory.`);
+        currentSimulatedInventory.push("Item_Cubo_Azul"); // Simulate picking up cube allows pressure plate
+      }
+
+      // Assign Reward (keep existing logic)
       if (
         nextPuzzle.rewardType === "Item" ||
         nextPuzzle.rewardType === "Clue"
       ) {
         if (availableRewardsPool.length > 0) {
-          // Simple random assignment for now
-          // TODO: Could be smarter - prioritize required items/clues for later puzzles?
           let rewardIndex = Math.floor(
             Math.random() * availableRewardsPool.length
           );
-          let rewardToAssign = availableRewardsPool.splice(rewardIndex, 1)[0]; // Remove and get reward
+          let rewardToAssign = availableRewardsPool.splice(rewardIndex, 1)[0];
           assignedRewards[nextPuzzle.id] = rewardToAssign;
           console.log(
             `   Assigned reward: ${rewardToAssign} to ${nextPuzzle.id}`
           );
-          // Add reward to simulated inventory for next checks
-          // Use prefix for items/clues, full name for signals
           const rewardIdentifier = rewardToAssign.startsWith("Enable_")
             ? rewardToAssign
             : rewardToAssign.split(" ")[0];
           currentSimulatedInventory.push(rewardIdentifier);
         } else {
-          console.warn(
-            `   No available rewards left to assign to ${nextPuzzle.id}!`
-          );
-          // This might make the chain unsolvable if later puzzles need items.
+          console.warn(`   No available rewards left for ${nextPuzzle.id}!`);
         }
       } else if (nextPuzzle.rewardType === "Signal") {
-        // Add signal to simulated inventory
         if (nextPuzzle.id === "demo_colorSequence") {
-          // Assuming color sequence gives book enable signal
           const signal = "Enable_Book_Puzzle";
           console.log(`   Adding signal: ${signal} from ${nextPuzzle.id}`);
           currentSimulatedInventory.push(signal);
         }
-        // Add other signals here if needed
       }
-
-      // Remove selected puzzle from the remaining pool
       remainingPool = remainingPool.filter((p) => p.id !== nextPuzzle.id);
     } else {
-      // No solvable candidates found with current simulated inventory
       console.error(
         `Chain generation stuck at ${
           puzzleChainIds.length
-        } puzzles. No candidates found with inventory: [${currentSimulatedInventory.join(
+        }. Inv: [${currentSimulatedInventory.join(
           ", "
-        )}]. Remaining pool: [${remainingPool.map((p) => p.id).join(", ")}]`
+        )}]. Pool: [${remainingPool.map((p) => p.id).join(", ")}]`
       );
-      break; // Stop generation
+      break;
     }
   } // End while loop
 
-  if (safetyCounter >= maxLoops) {
-    console.error(
-      "Puzzle chain generation exceeded max loops. Chain may be incomplete or broken."
-    );
-  }
+  // (Keep the rest of the function as is: safety checks, populating activePuzzles, configuring door)
+  if (safetyCounter >= maxLoops)
+    console.error("Puzzle chain generation max loops exceeded.");
   if (puzzleChainIds.length < targetPuzzleCount) {
     console.warn(
-      `Generated chain is shorter (${puzzleChainIds.length}) than targeted (${targetPuzzleCount}).`
+      `Generated chain shorter (${puzzleChainIds.length}) than target (${targetPuzzleCount}).`
     );
-    // Update the target count to reflect the actual generated length for UI consistency
-    targetPuzzleCount = puzzleChainIds.length;
+    targetPuzzleCount = puzzleChainIds.length; // Adjust count for UI
   }
 
-  // --- Populate activePuzzles Array ---
-  puzzleChainIds.forEach((id) => {
-    const puzzleDef = allPuzzles.find((p) => p.id === id);
-    if (puzzleDef) {
-      activePuzzles.push({
-        ...puzzleDef, // Copy definition
-        isSolved: false,
-        isMarkedSolved: false,
-        assignedReward: assignedRewards[id] || null, // Add the assigned reward
-      });
-    }
-  });
+  activePuzzles = puzzleChainIds
+    .map((id) => {
+      const puzzleDef = allPuzzles.find((p) => p.id === id);
+      return puzzleDef
+        ? {
+            ...puzzleDef,
+            isSolved: false,
+            isMarkedSolved: false,
+            assignedReward: assignedRewards[id] || null,
+          }
+        : null;
+    })
+    .filter((p) => p !== null); // Filter out nulls if definition not found
 
-  // --- Configure and Add Escape Door ---
   const doorMesh = getScene().getObjectByName("exitDoor");
   const doorPuzzleDef = allPuzzles.find((p) => p.id === "escapeDoor");
   let finalRequirement = "Item_Llave_Maestra"; // Default
-
   if (activePuzzles.length > 0) {
     const lastPuzzleInChain = activePuzzles[activePuzzles.length - 1];
-    const lastPuzzleReward = lastPuzzleInChain.assignedReward; // Get the dynamically assigned reward
-    // Check if the last reward is suitable for the door (Master Key or Final Code Clue)
+    const lastPuzzleReward = lastPuzzleInChain.assignedReward;
     if (
       lastPuzzleReward &&
       (lastPuzzleReward === "Item_Llave_Maestra" ||
@@ -2102,33 +2071,26 @@ export function selectPuzzles(difficultyValue, scene) {
       finalRequirement = lastPuzzleReward;
     } else {
       console.warn(
-        `Last puzzle (${lastPuzzleInChain.id}) reward "${lastPuzzleReward}" is not Master Key or Final Code. Defaulting door requirement to ${finalRequirement}.`
+        `Last puzzle (${lastPuzzleInChain.id}) reward "${lastPuzzleReward}" not suitable for door. Defaulting to ${finalRequirement}.`
       );
-      // Force assign master key as reward to *something* if possible? Or ensure final keypad is last?
-      // For now, just default. This might make Expert mode impossible if final keypad isn't last AND doesn't grant the final code clue.
-      // Need to refine reward assignment logic for expert maybe.
     }
   } else {
-    console.warn(
-      "No puzzles generated in chain! Door requirement will be default."
-    );
+    console.warn("No puzzles in chain! Door requirement defaulted.");
   }
 
   if (doorMesh && doorMesh.userData && doorPuzzleDef) {
-    doorMesh.userData.requires = finalRequirement; // SET THE DYNAMIC REQUIREMENT
-    doorMesh.userData.hint = `La puerta de salida... (Necesita ${finalRequirement})`; // Update hint
-    doorMesh.userData.solved = false; // Ensure reset
+    doorMesh.userData.requires = finalRequirement;
+    doorMesh.userData.hint = `La puerta de salida... (Necesita ${finalRequirement})`;
+    doorMesh.userData.solved = false;
     activePuzzles.push({
       ...doorPuzzleDef,
       requires: finalRequirement,
       isSolved: false,
       isMarkedSolved: false,
-    }); // Add door to active list
+    });
     console.log(`Escape Door configured. Requires: ${finalRequirement}`);
   } else {
-    console.error(
-      "Exit door mesh or definition not found during final configuration!"
-    );
+    console.error("Exit door mesh/definition not found for final config!");
   }
 
   console.log(`--- Puzzle Selection Complete ---`);
@@ -2139,7 +2101,7 @@ export function selectPuzzles(difficultyValue, scene) {
   );
   console.log(`Assigned Rewards Map:`, assignedRewards);
   console.log(
-    `Effective puzzle count for this game (excluding door): ${getActivePuzzlesCount()}`
+    `Effective puzzle count for game (excluding door): ${getActivePuzzlesCount()}`
   );
 }
 

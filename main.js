@@ -157,136 +157,123 @@ export function getGameState() {
   return gameState;
 }
 
+
 export function setGameState(newState) {
-  if (gameState === newState) return;
-  const previousState = gameState;
-  gameState = newState;
-  console.log(`State changed: ${previousState} -> ${newState}`);
+    if (gameState === newState) return;
+    const previousState = gameState;
+    gameState = newState;
+    console.log(`State changed: ${previousState} -> ${newState}`);
 
-  document.body.className = ""; // Clear previous classes
-  document.body.classList.add(newState); // Add current state class
+    document.body.className = "";
+    document.body.classList.add(newState);
 
-  // Show/Hide Overlays based on state
-  showOverlay(newState); // ui.js function handles which overlay to show
+    showOverlay(newState);
 
-  // Handle Pointer Lock
-  const shouldBeLocked = newState === GAME_STATES.PLAYING;
-  try {
-    if (shouldBeLocked && controls && !controls.isLocked) {
-      // Attempt lock only if changing *to* playing state,
-      // not if already playing (avoids re-locking issues)
-      if (previousState !== GAME_STATES.PLAYING) {
-        console.log("Attempting lock for PLAYING state...");
-        controls.lock();
-      }
-    } else if (!shouldBeLocked && controls?.isLocked) {
-      console.log(`Unlocking controls for state: ${newState}...`);
-      controls.unlock();
+    // --- Revised Pointer Lock Logic ---
+    const shouldBeLocked = newState === GAME_STATES.PLAYING;
+    const currentlyLocked = controls?.isLocked;
+
+    try {
+         // Unlock if needed (e.g., going to PAUSED, MENU, etc.)
+        if (!shouldBeLocked && currentlyLocked) {
+            console.log(`Unlocking controls for state: ${newState}...`);
+            controls.unlock();
+        }
+        // <<< REMOVED the lock attempt when newState === GAME_STATES.PLAYING >>>
+        // <<< The 'lock' event handler now manages setting the PLAYING state >>>
+
+    } catch (e) {
+        console.error("Controls lock/unlock error:", e);
     }
-  } catch (e) {
-    console.error("Controls lock/unlock error:", e);
-  }
+    // --- End Revised Logic ---
 
-  // State-specific actions
-  switch (newState) {
-    case GAME_STATES.PLAYING:
-      document.body.classList.toggle("holding-object", !!getHeldObject());
-      // Resume timer handled by updateTimer check
-      updateHUD();
-      break;
-    case GAME_STATES.PAUSED:
-      updateHUD(); // Show current progress in pause menu
-      // Timer paused implicitly by updateTimer check
-      break;
-    case GAME_STATES.MENU:
-      stopTimer(); // Ensure timer is stopped
-      cleanupPuzzles(scene); // Clean up previous game state if returning to menu
-      updateMenuPuzzleCountDisplay(); // Update display based on selector
-      hintsEnabled = false; // Reset hints
-      break;
-    case GAME_STATES.VICTORY:
-    case GAME_STATES.GAMEOVER_TIMEUP:
-      stopTimer(); // Stop timer on game end
-      playSound("victory_fanfare"); // Or game_over sound
-      break;
-    case GAME_STATES.PUZZLE:
-      // Focus input if visible
-      const puzzleInput = document.getElementById("puzzleInput");
-      if (puzzleInput?.style.display !== "none") {
-        setTimeout(() => puzzleInput.focus(), 50);
-      }
-      break;
-    // Add cases for PUZZLE_2D, INVENTORY, MINIGAME, HELP_CONFIRM if specific actions needed on entry
-  }
 
-  // Clear hover/held object cursor styles if not playing
-  if (newState !== GAME_STATES.PLAYING) {
-    document.body.classList.remove(
-      "interactable-hover",
-      "item-selected",
-      "holding-object"
-    );
-    if (getHoveredObject()) clearHoveredObject(); // Clear tooltip too
-  }
+    // State-specific actions (keep the rest)
+    switch (newState) {
+         case GAME_STATES.PLAYING:
+             document.body.classList.toggle("holding-object", !!getHeldObject());
+             updateHUD();
+             break;
+        // ... rest of switch cases ...
+    }
 
-  console.log(
-    `Finished setting state: ${newState}. Pointer locked: ${controls?.isLocked}`
-  );
+    // Clear hover/held object cursor styles if not playing
+    if (newState !== GAME_STATES.PLAYING) {
+        // ... (keep this logic) ...
+    }
+
+    // Log final status *after* potential unlock call
+    console.log(`Finished setting state: ${newState}. Pointer locked: ${controls?.isLocked}`);
 }
 
 // --- Core Game Flow Functions ---
+// Inside main.js
+
 export async function startGame() {
-  // <<< ADD async HERE
+  // <<< ADD async HERE (already present in your code, just confirming)
   console.log("Starting new game...");
   hintsEnabled = false; // Reset help flag
 
-  // 1. Reset previous game state
-  cleanupPuzzles(scene); // Remove old dynamic objects/reset static ones
-  // Reset inventory is handled within cleanup or inventory module initialization
-  // Reset player position & velocity
+  // ... (Reset previous game state logic) ...
   if (controls) {
     controls
       .getObject()
-      .position.set(0, PLAYER_HEIGHT, INTERACTION_DISTANCE * 2); // Adjust start position
-    const playerVelocity = controls.velocity || new THREE.Vector3(); // Assuming velocity is accessible/managed in playerControls
+      .position.set(0, PLAYER_HEIGHT, INTERACTION_DISTANCE * 2);
+    const playerVelocity = controls.velocity || new THREE.Vector3();
     playerVelocity.set(0, 0, 0);
-    controls.resetState?.(); // Add a reset function in playerControls if needed (e.g., for onGround flag)
+    controls.resetState?.();
   }
   if (getHeldObject()) {
-    // Force drop if somehow still holding an object (should be cleared by cleanup)
-    // Dynamic import is now valid inside an async function
     const { placeHeldObject } = await import("./interaction.js");
     placeHeldObject(true);
   }
-  // Dynamic import is now valid inside an async function
   const { deselectItem } = await import("./inventory.js");
   deselectItem(false);
 
   // 2. Determine Difficulty & Select Puzzles
-  const difficulty = getDifficultyValue(); // From ui.js
-  selectPuzzles(difficulty, scene); // Selects puzzle chain, assigns rewards
+  const difficulty = getDifficultyValue();
+  selectPuzzles(difficulty, scene);
 
   // 3. Setup Puzzles for the new game
-  setupPuzzles(scene); // Calls setup() for each active puzzle
+  setupPuzzles(scene);
 
   // 4. Start Timer based on difficulty
   let duration = 1800; // 30 mins (Expert/Default)
   const puzzleCount = getActivePuzzlesCount();
-  if (puzzleCount === 4) duration = 1800; // 30 mins Easy (adjust as desired)
+  if (puzzleCount === 4) duration = 1800; // 30 mins Easy
   else if (puzzleCount === 7) duration = 1500; // 25 mins Medium
   else if (puzzleCount === 10) duration = 1200; // 20 mins Difficult
   startTimer(duration);
 
-  // 5. Update UI
-  updatePuzzlesTotalUI(getActivePuzzlesCount()); // Show total puzzles for this game
-  updateHUD();
+  // 5. Update UI (HUD elements, but don't show overlay yet)
+  updatePuzzlesTotalUI(getActivePuzzlesCount());
+  updateHUD(); // Update counts, timer display might be hidden initially
 
-  // 6. Set state to Playing (will attempt pointer lock)
-  setGameState(GAME_STATES.PLAYING);
+  // 6. <<< REMOVED >>> setGameState(GAME_STATES.PLAYING);
 
-  playSound("background_ambient", true); // Start background loop
+  // 7. Attempt Pointer Lock (The 'lock' event handler will set the state)
+  if (controls && !controls.isLocked) {
+    try {
+      console.log("startGame: Attempting pointer lock...");
+      controls.lock();
+    } catch (err) {
+      console.error("startGame: Error initiating pointer lock:", err);
+      // Handle cases where lock fails immediately (e.g., browser settings)
+      // Maybe show an error message on the menu overlay?
+    }
+  } else if (controls?.isLocked) {
+    console.warn("startGame: Controls already locked? Unexpected.");
+    // If somehow already locked, force state to PLAYING? Or is this an error state?
+    // Let's assume the lock() call is needed.
+    setGameState(GAME_STATES.PLAYING); // Fallback if already locked? Might hide issues.
+  }
 
-  console.log("Game started!");
+  // playSound("background_ambient", true); // <<< COMMENTED OUT
+  console.log("Skipping background ambient sound load.");
+
+  console.log(
+    "Game started! Waiting for pointer lock event to set PLAYING state."
+  );
 }
 
 export function resetGame() {
