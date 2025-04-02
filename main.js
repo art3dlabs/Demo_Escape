@@ -38,7 +38,8 @@ import {
   getSolvedPuzzlesCount,
   markPuzzleSolved,
 } from "./puzzles.js";
-import { startTimer, stopTimer, updateTimer, isTimerRunning } from "./timer.js";
+// <<< REMOVE updateTimer FROM HERE >>>
+import { startTimer, stopTimer, isTimerRunning } from "./timer.js";
 import { setupAudio, playSound, stopSound } from "./audio.js";
 
 // --- Constants & Global Variables ---
@@ -112,9 +113,11 @@ function animate() {
   const currentTime = performance.now();
 
   // Update Timer (only if running)
-  if (isTimerRunning()) {
-    updateTimer();
-  }
+  // <<< REMOVE THIS BLOCK - Timer updates itself via setInterval >>>
+  // if (isTimerRunning()) {
+  //   updateTimer(); // No longer needed
+  // }
+  // <<< END OF REMOVAL >>>
 
   // Update Player Movement (always update physics unless menu/victory)
   if (

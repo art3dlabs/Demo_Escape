@@ -18,19 +18,23 @@ import {
   removeItemFromInventory,
   getInventory,
   getSelectedItem,
-  deselectItem,
   createPickupItem as createInvPickupItem,
+  clearInventory, // <<< ADDED THIS IMPORT
 } from "./inventory.js"; // Needs access to inventory
 import {
   addInteractableObject,
   removeInteractableObject,
-  addCollisionObject,
-  removeCollisionObject,
-  getHeldObject,
-  clearHoveredObject,
-} from "./interaction.js"; // Needs to manage objects
+  getHeldObject, // Keep if puzzle logic needs to know about held items
+  clearHoveredObject, // Keep if puzzle logic needs to clear hover state
+  // Removed addCollisionObject and removeCollisionObject from here
+} from "./interaction.js"; // Needs to manage *interactable* status
+// <<< --- ADD THIS NEW IMPORT BLOCK --- >>>
+// Import collision functions from the correct module
+import { addCollisionObject, removeCollisionObject } from "./playerControls.js"; // <<< CORRECT SOURCE
+// <<< --- END OF NEW IMPORT BLOCK --- >>>
 import { playSound } from "./audio.js";
-import { resetMeshVisualState } from "./sceneSetup.js"; // For resetting static meshes
+// Add getRoomSize here
+import { resetMeshVisualState, getRoomSize } from "./sceneSetup.js"; // <<< MODIFIED LINE
 
 // --- Global Puzzle State ---
 let activePuzzles = []; // Puzzles chosen for the current game instance
@@ -50,7 +54,7 @@ const bookSwapCorrectSequence = [0x006400, 0x8b0000, 0x4b0082, 0x00008b]; // Cor
 // This list contains *all* possible items/clues puzzles can grant.
 // selectPuzzles will pick from this list to assign rewards dynamically.
 const AVAILABLE_REWARDS = [
-  "Item_Llave_Dorada", //'Item_Llave_Maestra', // Master Key usually reserved for the end
+  "Item_Llave_Dorada",
   "Item_Llave_Pequeña",
   "Item_Destornillador",
   "Clue_Codigo_Vent (789)",
@@ -62,9 +66,17 @@ const AVAILABLE_REWARDS = [
   "Clue_Password_Panel (HIDDEN)",
   "Item_Diapositiva",
   "Item_Bateria",
-  "Clue_Codigo_Final (DOOR456)", // This might also be reserved?
-  "Clue_Symbol_Key (Estrella=A...)", // From liftRug description
-  "Clue_Under_Cube (Símbolo X?)", // From cube pickup
+  "Clue_Codigo_Final (DOOR456)", // Door might need this
+  "Clue_Symbol_Key (Estrella=A...)",
+  "Clue_Under_Cube (Símbolo X?)",
+  // <<< ADD PLACEHOLDERS >>>
+  "Item_Placeholder_1",
+  "Clue_Placeholder_1",
+  "Item_Placeholder_2",
+  "Clue_Placeholder_2",
+  "Item_Llave_Maestra", // Ensure Master Key is available for the door
+  "Item_Placeholder_3", // Add a few more just in case
+  "Clue_Placeholder_3",
 ];
 let availableRewardsPool = []; // Will be populated in selectPuzzles
 

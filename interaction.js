@@ -5,44 +5,61 @@ import {
   setGameState,
   GAME_STATES,
   areHintsEnabled,
+  getControls,
+  PLAYER_HEIGHT,
+  INTERACTION_DISTANCE,
+  getGameState, // <<< ADDED THIS IMPORT
 } from "./main.js";
+// ... rest of the file
+
 import {
-  updateTooltip,
-  showPuzzleModalContent,
-  hidePuzzleModal,
-  showMinigameUI,
-  hideMinigameUI,
+  updateTooltip, // Correct: From ui
+  showPuzzleModalContent, // Correct: From ui
+  hidePuzzleModal, // Correct: From ui
+  showMinigameUI, // Correct: From ui
+  hideMinigameUI, // Correct: From ui
+  getUIElement, // <<< ADDED: Need getUIElement
 } from "./ui.js";
 import {
-  addItemToInventory,
-  removeItemFromInventory,
-  getInventory,
-  getSelectedItem,
-  deselectItem,
-  createPickupItem as createInvPickupItem,
+  addItemToInventory, // Correct: From inventory
+  removeItemFromInventory, // Correct: From inventory
+  getInventory, // Correct: From inventory
+  getSelectedItem, // Correct: From inventory
+  deselectItem, // Correct: From inventory
+  createPickupItem as createInvPickupItem, // Correct: From inventory
 } from "./inventory.js";
 
-// --- CORRECTED IMPORTS ---
-// Import interaction functions from interaction.js
-import {
-  addInteractableObject,
-  removeInteractableObject,
-  getHeldObject, // Keep needed functions from interaction.js
-  clearHoveredObject,
-} from "./interaction.js";
+// --- REMOVED INCORRECT SELF-IMPORT BLOCK ---
+// // Import interaction functions from interaction.js
+// import {
+//   addInteractableObject,
+//   removeInteractableObject,
+//   getHeldObject,
+//   clearHoveredObject,
+// } from "./interaction.js";
+// --- END REMOVAL ---
 
 // Import collision functions from playerControls.js
 import {
-  addCollisionObject, // <<< IMPORT FROM HERE
-  removeCollisionObject, // <<< IMPORT FROM HERE
+  addCollisionObject, // Correct: From playerControls
+  removeCollisionObject, // Correct: From playerControls
+  getCollisionObjects, // <<< ADDED: Need getCollisionObjects for placement/drop raycasts
 } from "./playerControls.js";
-// --- END CORRECTION ---
 
-import { playSound } from "./audio.js";
-import { resetMeshVisualState } from "./sceneSetup.js";
+// Correct: puzzle imports (assuming these are correct paths)
+import {
+  getPuzzleDefinition,
+  getActivePuzzles,
+  checkRequirements,
+  handleBookClick, // Assuming this exists in puzzles.js
+  markPuzzleSolved,
+} from "./puzzles.js";
+
+import { playSound } from "./audio.js"; // Correct: From audio
+import { resetMeshVisualState } from "./sceneSetup.js"; // Correct: From sceneSetup
 
 // --- State ---
-let interactableObjects = []; // Objects that can be hovered over / interacted with
+let interactableObjects = [];
 let hoveredObject = null;
 let heldObject = null;
 const interactionRaycaster = new THREE.Raycaster();

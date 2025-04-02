@@ -36,32 +36,49 @@ import {
 const ROOM_SIZE = { width: 12, depth: 12, height: 3 };
 
 // --- Texture Loading ---
+// Commenting out texture loading for now to avoid 403/404 errors.
+// Using basic colored materials instead.
+/*
 const textureLoader = new TextureLoader();
+const PLACEHOLDER_TEXTURE_URL = 'https://via.placeholder.com/128/808080/FFFFFF?text=Texture';
+const WOOD_COLOR_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/hardwood2_diffuse.jpg';
+const WOOD_ROUGHNESS_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/hardwood2_roughness.jpg';
+const METAL_COLOR_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/Metal_SciFi_01_basecolor.jpg';
+const METAL_METALNESS_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/Metal_SciFi_01_metallic.jpg';
+const FLOOR_COLOR_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/terrain/grasslight-big.jpg';
+const FLOOR_ROUGHNESS_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js/examples/textures/roughness_map.jpg';
 
-function loadTexture(path, repeatX = 1, repeatY = 1) {
-  try {
-    const texture = textureLoader.load(path);
-    texture.wrapS = RepeatWrapping;
-    texture.wrapT = RepeatWrapping;
-    texture.repeat.set(repeatX, repeatY);
-    texture.colorSpace = SRGBColorSpace; // Ensure correct color space
-    texture.anisotropy = 16; // Improve texture quality at angles
-    return texture;
-  } catch (error) {
-    console.error(`Failed to load texture: ${path}`, error);
-    // Return a fallback or handle error appropriately
-    return null;
-  }
+function loadTexture(url, repeatX = 1, repeatY = 1) {
+    if (!url || url === PLACEHOLDER_TEXTURE_URL) {
+        url = PLACEHOLDER_TEXTURE_URL;
+        console.warn(`Using placeholder texture for a missing URL.`);
+    }
+    try {
+        console.log(`Loading texture from URL: ${url}`);
+        const texture = textureLoader.load(url);
+        texture.wrapS = RepeatWrapping;
+        texture.wrapT = RepeatWrapping;
+        texture.repeat.set(repeatX, repeatY);
+        texture.colorSpace = SRGBColorSpace;
+        texture.anisotropy = 16;
+        return texture;
+    } catch (error) {
+        console.error(`Failed to load texture from URL: ${url}`, error);
+         const placeholderTexture = textureLoader.load(PLACEHOLDER_TEXTURE_URL);
+         placeholderTexture.wrapS = RepeatWrapping;
+         placeholderTexture.wrapT = RepeatWrapping;
+         placeholderTexture.repeat.set(repeatX, repeatY);
+         placeholderTexture.colorSpace = SRGBColorSpace;
+         return placeholderTexture;
+    }
 }
+*/
 
-// --- Materials (Using Placeholders - Replace paths in assets/) ---
-// Basic PBR setup example
+// --- Basic Color Materials (Placeholder) ---
 const woodMaterial = new MeshStandardMaterial({
-  map: loadTexture("assets/textures/wood_color.jpg", 2, 1), // Example repeat
-  roughnessMap: loadTexture("assets/textures/wood_roughness.jpg", 2, 1),
-  // normalMap: loadTexture('assets/textures/wood_normal.jpg', 2, 1), // Optional Normal Map
-  metalness: 0.1,
+  color: 0x966f33,
   roughness: 0.7,
+  metalness: 0.1,
 });
 const darkWoodMaterial = new MeshStandardMaterial({
   color: 0x5c3a21,
@@ -69,40 +86,30 @@ const darkWoodMaterial = new MeshStandardMaterial({
   metalness: 0.1,
 });
 const metalMaterial = new MeshStandardMaterial({
-  map: loadTexture("assets/textures/metal_color.jpg"),
-  metalnessMap: loadTexture("assets/textures/metal_metalness.jpg"), // Use if available
+  color: 0x888888,
   roughness: 0.4,
-  metalness: 0.8, // Higher for metal
+  metalness: 0.8,
 });
 const floorMaterial = new MeshStandardMaterial({
-  map: loadTexture(
-    "assets/textures/floor_color.jpg",
-    ROOM_SIZE.width / 2,
-    ROOM_SIZE.depth / 2
-  ),
-  roughnessMap: loadTexture(
-    "assets/textures/floor_roughness.jpg",
-    ROOM_SIZE.width / 2,
-    ROOM_SIZE.depth / 2
-  ),
-  roughness: 0.8,
-  metalness: 0.1,
-});
+  color: 0x667766,
+  roughness: 0.9,
+  metalness: 0.0,
+}); // Greenish-grey floor
 const wallMaterial = new MeshStandardMaterial({
   color: 0xaaaaaa,
   side: DoubleSide,
-  roughness: 0.8,
+  roughness: 0.9,
   metalness: 0.0,
-}); // Simple wall
+});
 const ceilingMaterial = new MeshStandardMaterial({
   color: 0xdddddd,
   side: DoubleSide,
-});
+}); // <<< RE-ADDED DEFINITION
 const shelfMaterial = new MeshStandardMaterial({
   color: 0x966f33,
   roughness: 0.6,
 });
-const creamColor = 0xfff8dc;
+const creamColor = 0xfff8dc; // Keep for specific colors
 const legMaterial = new MeshStandardMaterial({
   color: 0x444444,
   metalness: 0.7,
@@ -133,7 +140,7 @@ const smallTableMaterial = new MeshStandardMaterial({
 const pictureMaterial = new MeshStandardMaterial({
   color: 0xffcc88,
   roughness: 0.8,
-}); // Placeholder picture
+});
 const sofaFabricMaterial = new MeshStandardMaterial({
   color: 0x708090,
   roughness: 0.9,
@@ -164,13 +171,11 @@ const projectorMaterial = new MeshStandardMaterial({
   metalness: 0.6,
 });
 const ventMaterial = new MeshStandardMaterial({
-  color: creamColor,
-  map: metalMaterial.map,
-  metalness: 0.3,
+  color: 0xcccccc,
+  metalness: 0.7,
+  roughness: 0.3,
   side: DoubleSide,
-  emissive: creamColor,
-  emissiveIntensity: 0.1,
-}); // Use metal texture maybe
+}); // Grey metallic vent
 
 // --- Scene Creation ---
 export function createScene() {
@@ -187,8 +192,7 @@ export function createCamera() {
     window.innerWidth / window.innerHeight,
     0.1,
     100
-  ); // Adjust far plane if needed
-  // Position set in main.js startGame
+  );
   return camera;
 }
 
@@ -197,52 +201,28 @@ export function createRenderer() {
   const renderer = new WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.outputColorSpace = SRGBColorSpace; // Correct output colors
+  renderer.outputColorSpace = SRGBColorSpace;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap; // Softer shadows
-  // renderer.toneMapping = THREE.ACESFilmicToneMapping; // Optional: Better HDR handling
-  // renderer.toneMappingExposure = 1.0;
+  renderer.shadowMap.type = PCFSoftShadowMap;
   return renderer;
 }
 
 // --- Lighting Setup ---
 export function setupLighting(scene) {
   console.log("Setting up lighting...");
-  // Ambient light (provides overall base light)
-  const ambientLight = new AmbientLight(0xffffff, 0.2); // Lower intensity if using env map
+  const ambientLight = new AmbientLight(0xffffff, 0.2);
   scene.add(ambientLight);
-
-  // Hemisphere light (simulates sky/ground bounce)
-  const hemiLight = new HemisphereLight(0xcccccc, 0x444444, 0.5); // Sky, Ground, Intensity
+  const hemiLight = new HemisphereLight(0xcccccc, 0x444444, 0.5);
   scene.add(hemiLight);
-
-  // Main directional light (simulates sun/moon) - Optional
-  // const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
-  // dirLight.position.set(5, 10, 7);
-  // dirLight.castShadow = true;
-  // dirLight.shadow.mapSize.width = 2048;
-  // dirLight.shadow.mapSize.height = 2048;
-  // scene.add(dirLight);
-  // scene.add(dirLight.target); // Add target for better control
-
-  // Placeholder for HDR environment map loading
-  // const rgbeLoader = new RGBELoader();
-  // rgbeLoader.load('assets/textures/environment.hdr', (texture) => {
-  //     texture.mapping = THREE.EquirectangularReflectionMapping;
-  //     scene.environment = texture;
-  //     scene.background = texture; // Or keep solid color background
-  //     console.log("Environment map loaded.");
-  // });
-
-  // Lamps (Point Lights) - Moved inside setupRoomObjects where lamps are created
+  // Add lights for lamps inside setupRoomObjects
   console.log("Base lighting added.");
 }
 
 // --- Room Geometry and Static Objects ---
 export function setupRoomObjects(scene) {
   console.log("Setting up room objects...");
-  clearCollisionObjects(); // Clear previous collision objects
-  clearInteractableObjects(); // Clear previous interactables
+  clearCollisionObjects();
+  clearInteractableObjects();
 
   // --- Floor ---
   const floorGeo = new PlaneGeometry(ROOM_SIZE.width, ROOM_SIZE.depth);
@@ -250,51 +230,56 @@ export function setupRoomObjects(scene) {
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   floor.name = "floor";
-  floor.userData = { isGround: true }; // For ground check
+  floor.userData = { isGround: true };
   scene.add(floor);
   addCollisionObject(floor);
 
   // --- Walls ---
   const wallGeoNS = new BoxGeometry(ROOM_SIZE.width, ROOM_SIZE.height, 0.1);
   const wallGeoEW = new BoxGeometry(ROOM_SIZE.depth, ROOM_SIZE.height, 0.1);
-  const wallBack = new Mesh(wallGeoNS, wallMaterial.clone());
+  const wallBack = new Mesh(wallGeoNS, wallMaterial.clone()); // Clone material for independent walls if needed later
   wallBack.position.set(0, ROOM_SIZE.height / 2, -ROOM_SIZE.depth / 2);
   wallBack.receiveShadow = true;
+  wallBack.castShadow = true; // Walls can cast shadows too
   wallBack.name = "wallBack";
   scene.add(wallBack);
   addCollisionObject(wallBack);
+
   const wallLeft = new Mesh(wallGeoEW, wallMaterial.clone());
   wallLeft.position.set(-ROOM_SIZE.width / 2, ROOM_SIZE.height / 2, 0);
   wallLeft.rotation.y = Math.PI / 2;
   wallLeft.receiveShadow = true;
+  wallLeft.castShadow = true;
   wallLeft.name = "wallLeft";
   scene.add(wallLeft);
   addCollisionObject(wallLeft);
+
   const wallRight = new Mesh(wallGeoEW, wallMaterial.clone());
   wallRight.position.set(ROOM_SIZE.width / 2, ROOM_SIZE.height / 2, 0);
   wallRight.rotation.y = Math.PI / 2;
   wallRight.receiveShadow = true;
+  wallRight.castShadow = true;
   wallRight.name = "wallRight";
   scene.add(wallRight);
   addCollisionObject(wallRight);
+
   const wallFront = new Mesh(wallGeoNS, wallMaterial.clone());
   wallFront.position.set(0, ROOM_SIZE.height / 2, ROOM_SIZE.depth / 2);
   wallFront.receiveShadow = true;
+  wallFront.castShadow = true;
   wallFront.name = "wallFront";
   scene.add(wallFront);
   addCollisionObject(wallFront);
 
   // --- Ceiling ---
   const ceilingGeo = new PlaneGeometry(ROOM_SIZE.width, ROOM_SIZE.depth);
-  const ceiling = new Mesh(ceilingGeo, ceilingMaterial);
+  const ceiling = new Mesh(ceilingGeo, ceilingMaterial); // <<< USES THE RE-ADDED ceilingMaterial
   ceiling.position.y = ROOM_SIZE.height;
   ceiling.rotation.x = Math.PI / 2;
   ceiling.name = "ceiling";
-  scene.add(ceiling); // Usually not a collision object from below
+  scene.add(ceiling);
 
-  // --- Furniture & Static Elements (No Puzzle Logic Here) ---
-  // Note: userData.hint provides initial text. puzzleId and logic are added by puzzles.js setup
-
+  // --- Furniture & Static Elements ---
   // Desk
   const deskHeight = 0.8;
   const tabletopWidth = 1.5;
@@ -341,13 +326,13 @@ export function setupRoomObjects(scene) {
     interactable: false,
     hint: "Un escritorio moderno",
     isStaticFurniture: true,
-  }; // Not interactable itself
+  };
   scene.add(newDeskGroup);
   addCollisionObject(tabletopMesh);
   addCollisionObject(legLeftMesh);
   addCollisionObject(legRightMesh);
 
-  // Drawer Mesh (Logic added later if deskDrawer puzzle is active)
+  // Drawer Mesh
   const drawerWidth = 0.6;
   const drawerHeight = 0.15;
   const drawerDepth = 0.6;
@@ -360,12 +345,12 @@ export function setupRoomObjects(scene) {
   );
   drawer.castShadow = true;
   drawer.receiveShadow = true;
-  drawer.name = "deskDrawer"; // Crucial Name
+  drawer.name = "deskDrawer";
   drawer.userData = {
     interactable: true,
     hint: "Un cajón cerrado.",
     baseHint: "Un cajón cerrado.",
-  }; // Base hint
+  };
   scene.add(drawer);
   addInteractableObject(drawer);
   addCollisionObject(drawer);
@@ -396,7 +381,7 @@ export function setupRoomObjects(scene) {
   };
   scene.add(chair);
   addInteractableObject(chair);
-  addCollisionObject(chairSeat); // Seat is main collision
+  addCollisionObject(chairSeat);
 
   // Item Shelves
   const itemShelfWidth = 1.0;
@@ -424,7 +409,7 @@ export function setupRoomObjects(scene) {
     addCollisionObject(shelf);
   });
 
-  // Bookshelf (Structure Only - Books added by puzzle setup if active)
+  // Bookshelf (Structure Only)
   const bookShelfUnitWidth = 1.4;
   const bookShelfHeight = 0.04;
   const bookShelfDepth = 0.25;
@@ -481,7 +466,7 @@ export function setupRoomObjects(scene) {
     ROOM_SIZE.depth / 2 - bookShelfDepth / 2 - 0.01
   );
   scene.add(bookShelfStructure);
-  bookShelfStructure.userData = { isStaticFurniture: true }; // Structure itself isn't interactable
+  bookShelfStructure.userData = { isStaticFurniture: true };
 
   // Safe Shelf
   const safeShelfWidthEnlarged = 1.0;
@@ -610,9 +595,9 @@ export function setupRoomObjects(scene) {
   addCollisionObject(tableTop);
   addCollisionObject(tableLeg);
 
-  // Picture on Wall (Logic added later if movePicture puzzle active)
+  // Picture on Wall
   const pictureGeo = new PlaneGeometry(0.8, 0.6);
-  const picture = new Mesh(pictureGeo, pictureMaterial); // Placeholder texture
+  const picture = new Mesh(pictureGeo, pictureMaterial);
   const pictureFrameGeo = new BoxGeometry(0.8 + 0.05, 0.6 + 0.05, 0.03);
   const pictureFrame = new Mesh(pictureFrameGeo, darkWoodMaterial);
   picture.position.z = 0.016;
@@ -620,7 +605,7 @@ export function setupRoomObjects(scene) {
   pictureGroup.add(picture);
   pictureGroup.add(pictureFrame);
   pictureGroup.position.set(0, 1.5, -ROOM_SIZE.depth / 2 + 0.1);
-  pictureGroup.name = "pictureOnWall"; // Crucial Name
+  pictureGroup.name = "pictureOnWall";
   pictureGroup.userData = {
     interactable: true,
     hint: "Un cuadro colgado",
@@ -631,14 +616,14 @@ export function setupRoomObjects(scene) {
   scene.add(pictureGroup);
   addInteractableObject(pictureGroup);
 
-  // Rug (Logic added later if liftRug puzzle active)
+  // Rug
   const rugGeo = new PlaneGeometry(2.5, 1.8);
   const rugMat = new MeshStandardMaterial({ color: 0x6b2a3b, roughness: 0.9 });
   const rug = new Mesh(rugGeo, rugMat);
   rug.rotation.x = -Math.PI / 2;
   rug.position.set(0, 0.01, 0);
   rug.receiveShadow = true;
-  rug.name = "rug"; // Crucial Name
+  rug.name = "rug";
   rug.userData = {
     interactable: true,
     hint: "Una alfombra vieja",
@@ -647,7 +632,7 @@ export function setupRoomObjects(scene) {
     originalY: rug.position.y,
   };
   scene.add(rug);
-  addInteractableObject(rug); // Not usually a collision object
+  addInteractableObject(rug);
 
   // Wall Clock
   const clockFaceGeo = new CircleGeometry(0.2, 32);
@@ -671,13 +656,13 @@ export function setupRoomObjects(scene) {
   scene.add(clockGroup);
   addInteractableObject(clockGroup);
 
-  // Air Vent Mesh (Logic added later if airVent puzzle active)
+  // Air Vent Mesh
   const ventGeo = new PlaneGeometry(0.4, 0.3);
   const airVent = new Mesh(ventGeo, ventMaterial);
   const airVentY = ROOM_SIZE.height - 0.3;
   const airVentZ = ROOM_SIZE.depth / 2 - 0.1;
   airVent.position.set(0, airVentY, airVentZ);
-  airVent.name = "airVent"; // Crucial Name
+  airVent.name = "airVent";
   airVent.userData = {
     interactable: true,
     hint: "Una rejilla de ventilación.",
@@ -733,10 +718,9 @@ export function setupRoomObjects(scene) {
 
   // --- Lamps with Lights ---
   const lampLightColor = 0xffeedd;
-  const lampIntensity = 15; // Adjust intensity (PointLight uses distance units)
+  const lampIntensity = 15;
   const lampDistance = 6;
-  const lampDecay = 1.5; // Physical decay
-
+  const lampDecay = 1.5;
   // Floor Lamps
   const floorLampPositions = [
     new Vector3(-ROOM_SIZE.width / 2 + 1, 0, -ROOM_SIZE.depth / 2 + 1),
@@ -807,7 +791,7 @@ export function setupRoomObjects(scene) {
       lampDecay
     );
     lampLight.position.set(pos.x, shadeY - 0.1, pos.z);
-    lampLight.castShadow = true; // Cast shadow
+    lampLight.castShadow = true;
     lampLight.shadow.mapSize.width = 512;
     lampLight.shadow.mapSize.height = 512;
     lampLight.shadow.bias = -0.005;
@@ -884,7 +868,7 @@ export function setupRoomObjects(scene) {
   deskLampLight.shadow.mapSize.height = 512;
   deskLampLight.shadow.bias = -0.005;
   deskLampLight.name = "deskLampLight";
-  deskLampGroup.add(deskLampLight); // Add light to group
+  deskLampGroup.add(deskLampLight);
   scene.add(deskLampGroup);
   addInteractableObject(deskLampGroup);
   addCollisionObject(deskLampBase);
@@ -946,19 +930,19 @@ export function setupRoomObjects(scene) {
     lampDistance * 0.7,
     lampDecay
   );
-  tableLampLight.position.set(0, tableLampShadeY_Table - 0.05, 0); // Relative position
+  tableLampLight.position.set(0, tableLampShadeY_Table - 0.05, 0);
   tableLampLight.castShadow = true;
   tableLampLight.shadow.mapSize.width = 512;
   tableLampLight.shadow.mapSize.height = 512;
   tableLampLight.shadow.bias = -0.005;
   tableLampLight.name = "tableLampLight";
-  tableLampGroup.add(tableLampLight); // Add light to group
+  tableLampGroup.add(tableLampLight);
   scene.add(tableLampGroup);
   addInteractableObject(tableLampGroup);
   addCollisionObject(tableLampBase);
   addCollisionObject(tableLampStem);
 
-  // --- STATIC MESHES for Puzzles (No logic here) ---
+  // --- STATIC MESHES for Puzzles ---
   console.log("Creating static meshes for potential puzzles...");
 
   // Pressure Plate Mesh
@@ -967,7 +951,7 @@ export function setupRoomObjects(scene) {
   const plateGeo = new BoxGeometry(plateSize, plateThickness, plateSize);
   const pressurePlateMesh = new Mesh(plateGeo, pressurePlateMaterial);
   pressurePlateMesh.position.set(-2.0, plateThickness / 2 + 0.01, -1.0);
-  pressurePlateMesh.name = "pressurePlate"; // Crucial Name
+  pressurePlateMesh.name = "pressurePlate";
   pressurePlateMesh.userData = {
     interactable: false,
     hint: "Una placa de presión.",
@@ -991,7 +975,7 @@ export function setupRoomObjects(scene) {
     1.5
   );
   finalKeypadMesh.rotation.y = Math.PI / 2;
-  finalKeypadMesh.name = "finalKeypad"; // Crucial Name
+  finalKeypadMesh.name = "finalKeypad";
   finalKeypadMesh.castShadow = true;
   finalKeypadMesh.userData = {
     interactable: true,
@@ -1007,20 +991,20 @@ export function setupRoomObjects(scene) {
   const wiresTriggerMesh = new Mesh(wiresTriggerGeo, wiresTriggerMaterial);
   wiresTriggerMesh.position.set(-ROOM_SIZE.width / 2 + 0.1, 1.5, -3.0);
   wiresTriggerMesh.rotation.y = Math.PI / 2;
-  wiresTriggerMesh.name = "wiresPuzzle_Trigger"; // Crucial Name
+  wiresTriggerMesh.name = "wiresPuzzle_Trigger";
   wiresTriggerMesh.userData = {
     interactable: true,
     hint: "Un panel eléctrico dañado.",
     baseHint: "Un panel eléctrico dañado.",
   };
   scene.add(wiresTriggerMesh);
-  addInteractableObject(wiresTriggerMesh); // Not a collision object
+  addInteractableObject(wiresTriggerMesh);
 
   // Simon Says Trigger Mesh
   const simonTriggerGeo = new BoxGeometry(0.6, 0.6, 0.05);
   const simonTriggerMesh = new Mesh(simonTriggerGeo, simonTriggerMaterial);
   simonTriggerMesh.position.set(1.0, 1.8, -ROOM_SIZE.depth / 2 + 0.1);
-  simonTriggerMesh.name = "simonSays_Trigger"; // Crucial Name
+  simonTriggerMesh.name = "simonSays_Trigger";
   simonTriggerMesh.userData = {
     interactable: true,
     hint: "Un panel con luces.",
@@ -1028,7 +1012,7 @@ export function setupRoomObjects(scene) {
   };
   scene.add(simonTriggerMesh);
   addInteractableObject(simonTriggerMesh);
-  addCollisionObject(simonTriggerMesh); // Small collision box
+  addCollisionObject(simonTriggerMesh);
 
   // Symbol Matching Object Mesh (Book)
   const symbolBookGeo = new BoxGeometry(0.4, 0.05, 0.3);
@@ -1039,7 +1023,7 @@ export function setupRoomObjects(scene) {
     tabletopMesh.position.z
   );
   symbolBookMesh.rotation.y = -Math.PI / 16;
-  symbolBookMesh.name = "symbolMatching_Object"; // Crucial Name
+  symbolBookMesh.name = "symbolMatching_Object";
   symbolBookMesh.castShadow = true;
   symbolBookMesh.receiveShadow = true;
   symbolBookMesh.userData = {
@@ -1059,7 +1043,7 @@ export function setupRoomObjects(scene) {
     safeShelf.position.y + safeShelfHeight / 2 + 0.125,
     safeShelf.position.z
   );
-  projectorMesh.name = "projectorPuzzle_Object"; // Crucial Name
+  projectorMesh.name = "projectorPuzzle_Object";
   projectorMesh.castShadow = true;
   projectorMesh.userData = {
     interactable: true,
@@ -1080,27 +1064,25 @@ export function createExitDoor(scene) {
   const doorHeight = 2.1;
   const doorDepth = 0.1;
   const doorGeo = new BoxGeometry(doorWidth, doorHeight, doorDepth);
+  // Using a basic color material for the door
   const doorMat = new MeshStandardMaterial({
-    color: 0x6f4e37, // Brown
+    color: 0x6f4e37,
     roughness: 0.7,
     metalness: 0.1,
-    // map: loadTexture('assets/textures/door_color.jpg'), // Optional texture
-    // roughnessMap: loadTexture('assets/textures/door_roughness.jpg'),
   });
   const exitDoor = new Mesh(doorGeo, doorMat);
-  exitDoor.position.set(ROOM_SIZE.width / 2 - doorDepth / 2, doorHeight / 2, 0); // Right Wall
-  exitDoor.rotation.y = Math.PI / 2;
+  exitDoor.position.set(ROOM_SIZE.width / 2 - doorDepth / 2, doorHeight / 2, 0); // Place on right wall edge
+  exitDoor.rotation.y = Math.PI / 2; // Rotate to face into room (relative to wall)
   exitDoor.castShadow = true;
   exitDoor.receiveShadow = true;
-  exitDoor.name = "exitDoor"; // Crucial Name
-  // Requirements and logic added by puzzle setup
+  exitDoor.name = "exitDoor";
   exitDoor.userData = {
     interactable: true,
     hint: "La puerta de salida...",
-    baseHint: "La puerta de salida...", // Base hint
-    puzzleId: "escapeDoor", // Link to puzzle definition
+    baseHint: "La puerta de salida...",
+    puzzleId: "escapeDoor",
     solved: false,
-    requires: "Item_Llave_Maestra", // Default, will be overridden by selectPuzzles
+    requires: "Item_Llave_Maestra",
   };
   scene.add(exitDoor);
   addInteractableObject(exitDoor);
@@ -1113,48 +1095,50 @@ export function getRoomSize() {
   return ROOM_SIZE;
 }
 
-// Helper function to reset visual states of static puzzle meshes (called by cleanupPuzzles)
+// Resets visual state of static puzzle meshes
 export function resetMeshVisualState(mesh) {
   if (!mesh || !mesh.material || !mesh.userData) return;
   const baseHint = mesh.userData.baseHint || "Interactuar";
-  mesh.userData.hint = baseHint; // Reset hint
+  mesh.userData.hint = baseHint;
 
   try {
-    // Add try-catch for safety
+    const mat = mesh.material; // Simplify access
     switch (mesh.name) {
       case "deskDrawer":
-        // Optionally reset position if animated
-        // mesh.position.z = ... initial z ...;
+        if (mesh.userData.originalPos)
+          mesh.position.copy(mesh.userData.originalPos);
         break;
       case "airVent":
-        mesh.material.color?.setHex(creamColor);
-        mesh.material.emissive?.setHex(creamColor);
-        mesh.material.emissiveIntensity = 0.1;
-        // Optionally reset rotation/position if animated
-        // mesh.rotation.z = 0; mesh.position.y = ... initial y ...;
+        mat.color?.setHex(0xcccccc); // Grey metallic color
+        mat.emissive?.setHex(0x000000);
+        mat.emissiveIntensity = 0;
+        if (mesh.userData.originalPos)
+          mesh.position.copy(mesh.userData.originalPos);
+        if (mesh.userData.originalRot)
+          mesh.rotation.copy(mesh.userData.originalRot);
         break;
       case "pressurePlate":
         mesh.position.y = mesh.userData.originalY || 0.05 / 2 + 0.01;
-        mesh.material.color?.setHex(0x444455);
+        mat.color?.setHex(0x444455); // Reset color
         break;
       case "finalKeypad":
-        mesh.material.color?.setHex(0x2a2a3a);
-        mesh.material.emissive?.setHex(0x000000);
+        mat.color?.setHex(0x2a2a3a);
+        mat.emissive?.setHex(0x000000);
         break;
       case "wiresPuzzle_Trigger":
-        mesh.material.color?.setHex(0x661111);
-        mesh.material.emissive?.setHex(0x220000);
+        mat.color?.setHex(0x661111);
+        mat.emissive?.setHex(0x220000);
         break;
       case "simonSays_Trigger":
-        mesh.material.color?.setHex(0x111144);
-        mesh.material.emissive?.setHex(0x000011);
+        mat.color?.setHex(0x111144);
+        mat.emissive?.setHex(0x000011);
         break;
       case "symbolMatching_Object":
-        mesh.material.color?.setHex(0xeeeecc);
+        mat.color?.setHex(0xeeeecc);
         break;
       case "projectorPuzzle_Object":
-        mesh.material.emissive?.setHex(0x000000);
-        mesh.material.emissiveIntensity = 0;
+        mat.emissive?.setHex(0x000000);
+        mat.emissiveIntensity = 0;
         break;
       case "pictureOnWall":
         if (mesh.userData.originalPos)
@@ -1163,17 +1147,21 @@ export function resetMeshVisualState(mesh) {
         break;
       case "rug":
         mesh.position.y = mesh.userData.originalY || 0.01;
-        mesh.material.visible = true;
+        mat.visible = true;
         break;
       case "exitDoor":
-        mesh.material.color?.setHex(0x6f4e37); // Reset color
-        // Optionally reset open animation state
+        mat.color?.setHex(0x6f4e37);
+        break; // Reset color
+      // Reset books if they are static (handled in cleanupPuzzles instead now)
+      default:
+        // Handle book reset specifically if needed, or rely on cleanupPuzzles traversal
+        if (mesh.name?.startsWith("bookPuzzle_")) {
+          mat.color?.setHex(mesh.userData?.initialColor || 0x888888);
+          mat.emissiveIntensity = 0;
+        }
         break;
-      // Add other static puzzle meshes that need visual reset
     }
-    if (mesh.material.needsUpdate !== undefined) {
-      mesh.material.needsUpdate = true;
-    }
+    if (mat.needsUpdate !== undefined) mat.needsUpdate = true;
   } catch (error) {
     console.error(`Error resetting visual state for ${mesh.name}:`, error);
   }
