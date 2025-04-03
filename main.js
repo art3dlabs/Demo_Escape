@@ -1,7 +1,10 @@
+// START OF FILE main.js (Restored and Corrected)
+
 import * as THREE from "three";
+// Import PointerLockControls desde addons
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 
-// Import modules
+// Importar todos los módulos necesarios
 import {
   createScene,
   createCamera,
@@ -9,10 +12,13 @@ import {
   setupLighting,
   setupRoomObjects,
   createExitDoor,
+  getRoomSize // Necesario para playerControls
 } from "./sceneSetup.js";
 import {
   setupPointerLockControls,
   updatePlayerMovement,
+  addCollisionObject, // Necesario para sceneSetup
+  clearCollisionObjects // Necesario para limpieza
 } from "./playerControls.js";
 import {
   checkHoverInteraction,
@@ -20,15 +26,20 @@ import {
   getHeldObject,
   getHoveredObject,
   clearHoveredObject,
+  addInteractableObject, // Necesario para sceneSetup/puzzles
+  clearInteractableObjects, // Necesario para limpieza
+  placeHeldObject // Necesario para limpieza
 } from "./interaction.js";
 import {
   updateHUD,
   setupUIEventListeners,
   showOverlay,
-  hideOverlay,
+  hideOverlay, // Podría usarse internamente
   getDifficultyValue,
   updateMenuPuzzleCountDisplay,
   updatePuzzlesTotalUI,
+  setInitialUIState,
+  getUIElement // Necesario para mensajes de error
 } from "./ui.js";
 import {
   setupPuzzles,
@@ -37,10 +48,26 @@ import {
   getActivePuzzlesCount,
   getSolvedPuzzlesCount,
   markPuzzleSolved,
+  // Imports específicos de puzzles si son llamados desde aquí
+  getPuzzleDefinition,
+  getActivePuzzles,
 } from "./puzzles.js";
-// <<< REMOVE updateTimer FROM HERE >>>
-import { startTimer, stopTimer, isTimerRunning } from "./timer.js";
-import { setupAudio, playSound, stopSound } from "./audio.js";
+import {
+    startTimer,
+    stopTimer,
+    isTimerRunning,
+    getFormattedTime // Usado por HUD
+} from "./timer.js";
+import {
+    setupAudio,
+    playSound,
+    stopSound
+} from "./audio.js";
+import { // Imports necesarios para limpieza en startGame/reset
+    deselectItem,
+    clearInventory
+} from './inventory.js';
+
 
 // --- Constants & Global Variables ---
 export const GAME_STATES = {
@@ -63,8 +90,9 @@ let scene, camera, renderer, controls, clock;
 let gameState = GAME_STATES.MENU;
 let animationFrameId = null;
 let lastHoverCheckTime = 0;
-let ignoreNextUnlockFlag = false; // For intentional pointer unlocks
-let hintsEnabled = false; // For help system
+let ignoreNextUnlockFlag = false; // <<< --- ESTA ES LA CORRECTA, MANTENER ---
+let hintsEnabled = false;
+let ignoreInitialUnlock = false; // <<< --- ESTA ES LA NUEVA, MANTENER ---
 
 // --- Initialization ---
 function init() {
@@ -79,22 +107,29 @@ function init() {
 
   // Lighting & Static Scene
   setupLighting(scene);
-  setupRoomObjects(scene); // Creates static meshes ONLY
-  createExitDoor(scene); // Creates the door mesh
+  setupRoomObjects(scene);
+  createExitDoor(scene);
 
   // Player Controls
   controls = setupPointerLockControls(camera, document.body);
-  scene.add(controls.getObject());
+  console.log("Valor de controls después de setup:", controls); // <<< AÑADIR ESTE LOG
+  if (!controls) { // <<< AÑADIR ESTA VERIFICACIÓN
+      throw new Error("setupPointerLockControls devolvió undefined!");
+  }
+  scene.add(controls.getObject()); // Esta línea ahora está después de la verificación
+
+  controls.getObject().position.set(0, PLAYER_HEIGHT, 5); // Empezar a la altura de los ojos
+  controls.getObject().rotation.set(0, 0, 0);
+
 
   // Audio Setup
-  setupAudio(camera); // Pass camera for AudioListener
+  setupAudio(camera);
 
   // UI Listeners
   setupUIEventListeners();
 
   // Set Initial State
-  updateMenuPuzzleCountDisplay(); // Update count based on default difficulty
-  setGameState(GAME_STATES.MENU);
+  setInitialUIState();
 
   // Start Animation Loop
   animate();
@@ -109,33 +144,38 @@ function animate() {
     cancelAnimationFrame(animationFrameId);
     return;
   }
-  const delta = Math.min(0.05, clock.getDelta()); // Clamp delta time
+  const delta = Math.min(0.05, clock.getDelta());
   const currentTime = performance.now();
 
-  // Update Timer (only if running)
-  // <<< REMOVE THIS BLOCK - Timer updates itself via setInterval >>>
-  // if (isTimerRunning()) {
-  //   updateTimer(); // No longer needed
-  // }
-  // <<< END OF REMOVAL >>>
+  // Timer se actualiza solo
 
-  // Update Player Movement (always update physics unless menu/victory)
+  // Update Player Movement (if playing and controls are enabled)
   if (
     controls &&
-    gameState !== GAME_STATES.MENU &&
-    gameState !== GAME_STATES.VICTORY
+    gameState === GAME_STATES.PLAYING // Mover solo si estamos en PLAYING
+    // La comprobación interna de updatePlayerMovement usará controls.enabled (isLocked)
   ) {
-    updatePlayerMovement(delta, controls, scene); // Pass scene for collisions
+    updatePlayerMovement(delta, controls, scene);
   }
 
   // Check Interactions (only when playing and locked)
   if (gameState === GAME_STATES.PLAYING && controls?.isLocked) {
     if (currentTime - lastHoverCheckTime >= HOVER_CHECK_INTERVAL) {
-      checkHoverInteraction(camera, scene); // Pass scene for interactables list
+      checkHoverInteraction(camera, scene);
       lastHoverCheckTime = currentTime;
     }
+     // Actualizar posición del objeto sostenido si existe
+     const held = getHeldObject();
+     if (held && held.parent === camera) { // Asegurarse que está adjunto a la cámara
+         // interaction.js debería tener una función para esto o hacerla aquí
+         // Ejemplo:
+         // held.position.set(HOLD_OFFSET_RIGHT, -HOLD_OFFSET_DOWN, -HOLD_DISTANCE);
+         // held.rotation.set(0,0,0); // O alinear con cámara si se desea
+         // Si interaction.js no exporta una función para esto, la lógica va aquí.
+         // Por simplicidad, asumimos que updateHeldObjectPosition se llama internamente
+         // o no es estrictamente necesaria en cada frame.
+     }
   } else if (getHoveredObject()) {
-    // Clear hover state if not actively playing/locked
     clearHoveredObject();
   }
 
@@ -145,10 +185,17 @@ function animate() {
   } catch (e) {
     console.error("Render error:", e);
     cancelAnimationFrame(animationFrameId);
-    setGameState(GAME_STATES.MENU); // Go back to menu on error
-    const instructions = document.getElementById("instructions");
-    if (instructions)
-      instructions.innerHTML = `<h1>Render Error</h1><p>Check console (F12).</p><p>${e.message}</p>`;
+    try {
+        setGameState(GAME_STATES.MENU); // Intentar volver al menú
+        const instructions = getUIElement("instructions");
+        if (instructions)
+        instructions.innerHTML = `<h1>Render Error</h1><p>Error durante el renderizado.</p><p>${e.message}</p><span id="restartButtonError" style="font-size: 20px; cursor: pointer; color: #ffdd57;">Reiniciar Juego</span>`;
+        const restartBtn = document.getElementById("restartButtonError");
+        if(restartBtn) restartBtn.addEventListener('click', resetGame);
+    } catch (recoveryError) {
+        console.error("Error during error recovery:", recoveryError);
+        alert(`Error Crítico de Renderizado:\n${e.message}\n\nPor favor, recarga la página.`);
+    }
   }
 }
 
@@ -157,175 +204,227 @@ export function getGameState() {
   return gameState;
 }
 
-
 export function setGameState(newState) {
-    if (gameState === newState) return;
-    const previousState = gameState;
-    gameState = newState;
-    console.log(`State changed: ${previousState} -> ${newState}`);
+  if (gameState === newState) return;
+  const previousState = gameState;
+  gameState = newState;
+  console.log(`State changed: ${previousState} -> ${newState}`);
 
-    document.body.className = "";
-    document.body.classList.add(newState);
+  document.body.className = "";
+  document.body.classList.add(`state-${newState}`);
 
-    showOverlay(newState);
+  // Mostrar overlay correspondiente (ui.js se encarga)
+  showOverlay(newState);
 
-    // --- Revised Pointer Lock Logic ---
-    const shouldBeLocked = newState === GAME_STATES.PLAYING;
-    const currentlyLocked = controls?.isLocked;
+  // Manejo de Pointer Lock
+  const shouldBeLocked = newState === GAME_STATES.PLAYING;
+  const currentlyLocked = controls?.isLocked;
 
-    try {
-         // Unlock if needed (e.g., going to PAUSED, MENU, etc.)
-        if (!shouldBeLocked && currentlyLocked) {
-            console.log(`Unlocking controls for state: ${newState}...`);
-            controls.unlock();
+  try {
+    if (!shouldBeLocked && currentlyLocked) {
+      console.log(`Unlocking controls for state: ${newState}...`);
+       setIgnoreNextUnlockFlag(true); // Marcar como desbloqueo intencional
+      controls.unlock();
+    }
+    // El bloqueo se intenta/maneja en startGame o en los listeners de UI (Resume)
+    // y el evento 'lock' confirma el cambio a PLAYING
+  } catch (e) {
+    console.error("Controls lock/unlock error during state change:", e);
+  }
+
+  // Acciones específicas de estado
+  switch (newState) {
+    case GAME_STATES.PLAYING:
+       document.body.classList.toggle("holding-object", !!getHeldObject());
+       updateHUD(); // Actualizar HUD al entrar/volver a jugar
+      // playSound("background_ambient", true, 0.3); // Reanudar sonido ambiente?
+      break;
+    case GAME_STATES.PAUSED:
+      stopSound("background_ambient");
+      updateHUD(); // Actualizar HUD (especialmente timer) en pausa
+      break;
+    case GAME_STATES.VICTORY:
+      stopSound("background_ambient");
+      playSound("victory_fanfare");
+      stopTimer();
+      updateHUD();
+      if(controls?.isLocked) controls.unlock(); // Asegurar desbloqueo
+      break;
+     case GAME_STATES.GAMEOVER_TIMEUP:
+       stopSound("background_ambient");
+       playSound("game_over");
+       stopTimer();
+       updateHUD();
+       if(controls?.isLocked) controls.unlock(); // Asegurar desbloqueo
+      break;
+     case GAME_STATES.MENU:
+        // Limpieza profunda al volver al menú principal
+        cleanupPuzzles(scene); // Elimina objetos de puzzles, resetea estados
+        clearInteractableObjects(); // Limpia lista de interaccionables
+        clearCollisionObjects(); // Limpia lista de colisiones
+        // Añadir de nuevo colisiones base (suelo, paredes) si cleanup las quita
+        const floor = scene.getObjectByName('floor') || scene.getObjectByName('debug_floor');
+        const wallB = scene.getObjectByName('wallBack'); /* ...etc ... */
+        if(floor && !getCollisionObjects().includes(floor)) addCollisionObject(floor);
+        /* ... añadir otras paredes si es necesario ... */
+
+        if (controls) {
+            if(controls.isLocked) controls.unlock(); // Desbloquear
+            controls.resetState?.();
+            controls.getObject().position.set(0, PLAYER_HEIGHT - 0.1, 5); // Resetear pos
+            controls.getObject().rotation.set(0, 0, 0);
         }
-        // <<< REMOVED the lock attempt when newState === GAME_STATES.PLAYING >>>
-        // <<< The 'lock' event handler now manages setting the PLAYING state >>>
+        if (getHeldObject()) { // Forzar soltar objeto
+            try { placeHeldObject(true); } catch(e){}
+        }
+        try { // Limpiar inventario
+             deselectItem(false);
+             clearInventory();
+        } catch(e){}
 
-    } catch (e) {
-        console.error("Controls lock/unlock error:", e);
-    }
-    // --- End Revised Logic ---
+        stopTimer();
+        stopSound("background_ambient");
+        hintsEnabled = false;
+        setInitialUIState(); // Restaura UI del menú (botones, etc.)
+       break;
+    // Otros estados (PUZZLE, INVENTORY, MINIGAME) usualmente pausan la música si se desea
+    // case GAME_STATES.INVENTORY:
+    // case GAME_STATES.PUZZLE:
+    //     stopSound("background_ambient");
+    //     break;
+  }
 
-
-    // State-specific actions (keep the rest)
-    switch (newState) {
-         case GAME_STATES.PLAYING:
-             document.body.classList.toggle("holding-object", !!getHeldObject());
-             updateHUD();
-             break;
-        // ... rest of switch cases ...
-    }
-
-    // Clear hover/held object cursor styles if not playing
+    // Limpiar estilos de cursor si no se está jugando activamente
     if (newState !== GAME_STATES.PLAYING) {
-        // ... (keep this logic) ...
+        ignoreInitialUnlock = false; // <<< --- Resetear bandera al volver a menú ---
+
+         document.body.classList.remove("interactable-hover");
+         document.body.classList.remove("holding-object");
+         clearHoveredObject();
     }
 
-    // Log final status *after* potential unlock call
-    console.log(`Finished setting state: ${newState}. Pointer locked: ${controls?.isLocked}`);
+  console.log(`Finished setting state: ${newState}. Pointer locked: ${controls?.isLocked}`);
 }
+
 
 // --- Core Game Flow Functions ---
-// Inside main.js
-
 export async function startGame() {
-  // <<< ADD async HERE (already present in your code, just confirming)
+  // ... (Reset inicial como estaba) ...
   console.log("Starting new game...");
-  hintsEnabled = false; // Reset help flag
+  hintsEnabled = false;
+  cleanupPuzzles(scene);
+  clearInteractableObjects();
+  clearCollisionObjects();
+  if (controls) { /* ... reset controls ... */
+      controls.resetState?.();
+      controls.getObject().position.set(0, PLAYER_HEIGHT - 0.1, 5); // Asegurar altura inicial
+      controls.getObject().rotation.set(0, 0, 0);
+      if (controls.velocity) controls.velocity.set(0, 0, 0);
+  } else { return; }
+  if (getHeldObject()) { try { placeHeldObject(true); } catch(e) {} }
+  try { deselectItem(false); clearInventory(); } catch(e) {}
 
-  // ... (Reset previous game state logic) ...
-  if (controls) {
-    controls
-      .getObject()
-      .position.set(0, PLAYER_HEIGHT, INTERACTION_DISTANCE * 2);
-    const playerVelocity = controls.velocity || new THREE.Vector3();
-    playerVelocity.set(0, 0, 0);
-    controls.resetState?.();
-  }
-  if (getHeldObject()) {
-    const { placeHeldObject } = await import("./interaction.js");
-    placeHeldObject(true);
-  }
-  const { deselectItem } = await import("./inventory.js");
-  deselectItem(false);
-
-  // 2. Determine Difficulty & Select Puzzles
+  setupRoomObjects(scene);
+  createExitDoor(scene);
   const difficulty = getDifficultyValue();
   selectPuzzles(difficulty, scene);
-
-  // 3. Setup Puzzles for the new game
   setupPuzzles(scene);
-
+  // ... (Timer setup) ...
   // 4. Start Timer based on difficulty
-  let duration = 1800; // 30 mins (Expert/Default)
-  const puzzleCount = getActivePuzzlesCount();
-  if (puzzleCount === 4) duration = 1800; // 30 mins Easy
-  else if (puzzleCount === 7) duration = 1500; // 25 mins Medium
-  else if (puzzleCount === 10) duration = 1200; // 20 mins Difficult
+  let duration = 1800; // <<< --- AÑADIR 'let' AQUÍ ---
+  const puzzleCount = getActivePuzzlesCount(); // Get count of *selected* puzzles
+  const difficultyValueStr = String(difficulty); // Comparar como string
+   if (difficultyValueStr === "4") duration = 1800;      // 30 mins Easy (4 puzzles)
+   else if (difficultyValueStr === "7") duration = 1500; // 25 mins Medium (7 puzzles)
+   else if (difficultyValueStr === "10") duration = 1200;// 20 mins Difficult (10 puzzles)
+   // else duration = 1800; // Default for Expert/All (-1) ya está puesto arriba
   startTimer(duration);
-
-  // 5. Update UI (HUD elements, but don't show overlay yet)
   updatePuzzlesTotalUI(getActivePuzzlesCount());
-  updateHUD(); // Update counts, timer display might be hidden initially
+  updateHUD();
 
-  // 6. <<< REMOVED >>> setGameState(GAME_STATES.PLAYING);
+  // Set State to PLAYING and Request Lock
+  setGameState(GAME_STATES.PLAYING);
 
-  // 7. Attempt Pointer Lock (The 'lock' event handler will set the state)
-  if (controls && !controls.isLocked) {
-    try {
-      console.log("startGame: Attempting pointer lock...");
-      controls.lock();
-    } catch (err) {
-      console.error("startGame: Error initiating pointer lock:", err);
-      // Handle cases where lock fails immediately (e.g., browser settings)
-      // Maybe show an error message on the menu overlay?
-    }
-  } else if (controls?.isLocked) {
-    console.warn("startGame: Controls already locked? Unexpected.");
-    // If somehow already locked, force state to PLAYING? Or is this an error state?
-    // Let's assume the lock() call is needed.
-    setGameState(GAME_STATES.PLAYING); // Fallback if already locked? Might hide issues.
-  }
+  setTimeout(() => {
+      if (controls && !controls.isLocked && getGameState() === GAME_STATES.PLAYING) {
+          try {
+              console.log("startGame: Attempting pointer lock (delayed)...");
+              ignoreInitialUnlock = true; // <<< --- MARCAR PARA IGNORAR EL SIGUIENTE UNLOCK ---
+              controls.lock();
+          } catch (err) {
+              console.error("startGame: Error initiating pointer lock:", err);
+              ignoreInitialUnlock = false; // <<< --- RESETEAR SI EL LOCK FALLA ---
+              // ... (mensaje de error UI) ...
+          }
+      } else {
+           ignoreInitialUnlock = false; // <<< --- RESETEAR SI NO SE INTENTA BLOQUEAR ---
+      }
+  }, 50);
 
-  // playSound("background_ambient", true); // <<< COMMENTED OUT
-  console.log("Skipping background ambient sound load.");
-
-  console.log(
-    "Game started! Waiting for pointer lock event to set PLAYING state."
-  );
+  console.log("Game start requested. State set to PLAYING. Lock requested (delayed). Will ignore first unlock.");
 }
+
+
 
 export function resetGame() {
-  console.log("Resetting game by reloading page...");
-  stopSound("background_ambient"); // Stop loops before reload
-  if (animationFrameId) cancelAnimationFrame(animationFrameId);
-  location.reload();
+    console.log("Resetting game to MENU state...");
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    setGameState(GAME_STATES.MENU); // Llama a toda la lógica de limpieza del estado MENU
+    // setInitialUIState() es llamado dentro de setGameState(MENU)
 }
 
-// --- Utility Exports ---
-export function getScene() {
+
+export function getScene() { // <<< 'export' está aquí
   return scene;
 }
-export function getCamera() {
+export function getCamera() { // <<< 'export' está aquí
   return camera;
 }
-export function getControls() {
+export function getControls() { // <<< 'export' está aquí
   return controls;
 }
-export function getRenderer() {
+export function getRenderer() { // <<< 'export' está aquí
   return renderer;
 }
-export function getClock() {
+export function getClock() { // <<< 'export' está aquí
   return clock;
 }
-export function setIgnoreNextUnlockFlag(value) {
+export function setIgnoreNextUnlockFlag(value) { // <<< 'export' está aquí
   ignoreNextUnlockFlag = value;
 }
-export function getIgnoreNextUnlockFlag() {
+export function getIgnoreNextUnlockFlag() { // <<< 'export' está aquí
   return ignoreNextUnlockFlag;
 }
-export function areHintsEnabled() {
+export function areHintsEnabled() { // <<< 'export' está aquí
   return hintsEnabled;
 }
-export function setHintsEnabled(value) {
+export function setHintsEnabled(value) { // <<< 'export' está aquí
   hintsEnabled = value;
 }
 
+
+
+// --- Nuevas funciones para manejar la bandera ---
+export function shouldIgnoreInitialUnlock() {
+  return ignoreInitialUnlock;
+}
+export function clearIgnoreInitialUnlockFlag() {
+  ignoreInitialUnlock = false;
+}
+
 // --- Start ---
-// Ensure DOM is ready before initializing (optional, usually safe with script at end)
-// document.addEventListener('DOMContentLoaded', init);
-// Or initialize directly
 try {
   init();
 } catch (e) {
-  console.error("FATAL INIT ERROR:", e);
-  const blocker = document.getElementById("blocker");
-  const instructions = document.getElementById("instructions");
-  if (blocker) blocker.style.display = "flex";
-  if (instructions) {
-    instructions.style.display = "block";
-    instructions.innerHTML = `<h1>Init Error</h1><p>Check console (F12).</p><p>${e.message}</p>`;
-  }
-  if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    console.error("FATAL INIT ERROR:", e);
+    const blocker = document.getElementById("blocker");
+    const instructions = document.getElementById("instructions");
+    if (blocker) blocker.style.display = "flex";
+    if (instructions) {
+        instructions.style.display = "block";
+        instructions.innerHTML = `<h1>Error de Inicialización</h1><p>Detalles: ${e.message}</p><button onclick="location.reload()">Recargar</button>`;
+    }
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
 }
+
+// END OF FILE main.js (Restored and Corrected)
